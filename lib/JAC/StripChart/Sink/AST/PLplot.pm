@@ -53,6 +53,8 @@ sub init {
   my $self = shift;
   plvpor(0.15,0.85,0.15,0.85);
   plwind(0,1,0,1);
+  plsetopt("db",""); # Use double-buffer option to redraw plot
+  plsetopt("np",""); # No-pause
 
   $self->SUPER::init(@_);
 
@@ -85,16 +87,149 @@ sub _grfselect {
   return;
 }
 
+=item B<_colour_to_index>
+
+Translate given colour to PLplot colour index
+
+  $self->_colour_to_index( $colour );
+
+=cut
+
+sub _colour_to_index {
+  my $self = shift;
+  my $colour = shift;
+  my $cindex = -1;
+  $colour = lc($colour);
+
+  # Note the order of @knowncolours is set to match the PLplot index number
+  my @knowncolours = qw( red yellow green aquamarine pink wheat grey brown blue blueviolet
+cyan turquoise magenta salmon white );
+
+  # Colour index given
+  if ($colour =~ /\d/) {
+    throw JAC::StripChart::Error::BadConfig("Colour index does not exist - must lie between
+ 1 and 15") if ($colour > 15 || $colour < 1);
+    $cindex = $colour;
+  } elsif ($colour =~ /[a-z]/) {
+    # Now examine other colours and convert known values to indices
+    $colour = "grey" if ($colour eq "gray"); # For those who can't spell...
+    for my $j (0..scalar(@knowncolours-1)) {
+      if ($knowncolours[$j] eq $colour) {
+        $cindex = $j + 1;
+        last;
+      }
+    }
+  } else {
+    throw JAC::StripChart::Error::BadConfig("Invalid string for colour");
+  }
+  # Warn if $cindex not set, and set to default colour
+  # FUTURE: use this to establish new colour table
+  if ($cindex == -1) {
+    warnings::warnif(" Unknown colour, '$colour': setting to default value (yellow)");
+    $cindex = 2;
+  }
+  return $cindex;
+}
+
+=item B<_style_to_index>
+
+Translate given line style to PLplot colour index
+
+  $self->_style_to_index( $style );
+
+Since only 4 pens are supported in PLplot, only 4 line styles are
+available (out of 8).
+
+=cut
+
+sub _style_to_index {
+  my $self = shift;
+  my $style = shift;
+  my $stindex = 4;
+
+  if ($style eq "solid") {
+    $stindex = 1;
+  } elsif ($style eq "dot" || $style eq "dotted") {
+    $stindex = 2;
+  } elsif ($style eq "dash" || $style eq "dashed") {
+    $stindex = 3;
+  } elsif ($style eq "longdash" || $style eq "ldash") {
+    $stindex = 4;
+  } else {
+    print " Unknown LineStyle - setting style to solid \n";
+    $stindex = 1;
+  }
+
+  return $stindex;
+}
+
+=item B<_sym_to_index>
+
+Translate given plot symbol to PLplot symbol index
+
+  $self->_sym_to_index( $style );
+
+For now, only support basic symbols (circle, square etc). If symbol
+index is given directly, then check for valid value and set it to the
+given or default value.
+
+PLplot supports specifying any Hershey symbol number by default.
+
+=cut
+
+sub _sym_to_index {
+  my $self = shift;
+  my $sym = shift;
+  my $symindex = 1;
+
+  # Prefix with `f' to get filled versions
+  my %knownsymbols = ( square => 841,
+                       dot => 729,
+                       plus => 845,
+                       asterisk => 847,
+                       circle => 840,
+                       cross => 846,
+                       times => 846,
+                       x => 846,
+                       triangle => 842,
+                       diamond => 843,
+                       star => 844,
+                       fcircle => 850,
+                       fsquare => 851,
+                       ftriangle => 852,
+                       fstar => 856 );
+
+  if ($sym =~ /\d/) {
+    throw JAC::StripChart::Error::BadConfig("Symbol index not defined ")
+      if ($sym > 2932 && $sym < 255);
+    $symindex = $sym;
+  } elsif ($sym =~ /[a-z]/) {
+    foreach my $symkey (keys %knownsymbols) {
+      $symindex = $knownsymbols{$symkey} if ($symkey eq $sym);
+    }
+  }
+
+  if ($symindex == 1) {
+    warnings::warnif(" Unknown symbol, '$sym': setting to default (+)");
+    $symindex = 845;
+  }
+
+  return;
+}
+
+
 =back
 
 =head1 AUTHOR
 
-Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
+Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt> and
+Andy Gibb E<lt>agg@astro.ubc.caE<gt>
+
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council.
-All Rights Reserved.
+Copyright (C) 2004 Particle Physics and Astronomy Research Council and
+the University of British Columbia. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software

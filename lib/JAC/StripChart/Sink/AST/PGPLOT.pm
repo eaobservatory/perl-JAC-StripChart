@@ -66,6 +66,135 @@ sub _grfselect {
   return;
 }
 
+=item B<_colour_to_index>
+
+Translate given colour to PGPLOT colour index
+
+  $self->_colour_to_index( $colour );
+
+=cut
+
+sub _colour_to_index {
+  my $self = shift;
+  my $colour = shift;
+  my $cindex = -1;
+
+  # Note the order of @knowncolours is set to match the PGPLOT index number
+  my @knowncolours = qw( white red green blue cyan magenta yellow orange chartreuse springgreen skyblue purple pink darkgrey grey);
+
+  # Colour index given
+  if ($colour =~ /\d/) {
+    throw JAC::StripChart::Error::BadConfig("Colour index does not exist - must lie between 1 and 15") if ($colour > 15 || $colour < 1);
+    $cindex = $colour;
+  } elsif ($colour =~ /[a-z]/) {
+    # Convert to lower case
+    my $lcolour = lc($colour);
+    # Now examine other colours and convert known values to indices
+    $lcolour = "grey" if ($lcolour eq "gray"); # For those who can't spell...
+    $lcolour = "grey" if ($lcolour eq "lightgrey"); 
+    for my $j (0..scalar(@knowncolours-1)) {
+      if ($knowncolours[$j] eq $lcolour) {
+	$cindex = $j + 1;
+	last;
+      } 
+    }
+  } else {
+    throw JAC::StripChart::Error::BadConfig("Invalid string for colour");
+  }
+  # Warn if $cindex not set, and set to default colour
+  # FUTURE: use this to establish new colour table
+  if ($cindex == -1) {
+    warnings::warnif(" Unknown colour, '$colour': setting to default value (yellow)");
+    $cindex = 7;
+  }
+  return $cindex;
+}
+
+=item B<_style_to_index>
+
+Translate given line style to PGPLOT line style index
+
+  $self->_style_to_index( $style );
+
+PGPLOT supports only 5 linestyles
+
+=cut
+
+sub _style_to_index {
+  my $self = shift;
+  my $style = shift;
+  my $stindex = 1;
+
+  if ($style eq "solid") {
+    $stindex = 1;
+  } elsif ($style eq "dot" || $style eq "dotted") {
+    $stindex = 4;
+  } elsif ($style eq "dash-dot" || $style eq "ddash" || $style eq "dot-dash" ) {
+    $stindex = 3;
+  } elsif ($style eq "longdash" || $style eq "ldash" || $style eq "dash" || $style eq "dashed" )  {
+    $stindex = 2;
+  } elsif ($style eq "dash-dot-dot" || $style eq "dddash") {
+    $stindex = 5;
+  } else {
+    print " Unknown LineStyle - setting style to solid \n";
+    $stindex = 1;
+  }
+  
+  return $stindex;
+}
+
+=item B<_sym_to_index>
+
+Translate given plot symbol to PGPLOT symbol index
+
+  $self->_sym_to_index( $style );
+
+For now, only support basic symbols (circle, square etc). If symbol
+index is given directly, then check for valid value and set it to the
+given or default value.
+
+=cut
+
+sub _sym_to_index {
+  my $self = shift;
+  my $sym = shift;
+  my $symindex = -10;
+
+  # Prefix with `f' to get filled versions
+  my %knownsymbols = ( square => 0,
+		       dot => 1,
+		       plus => 2,
+		       asterisk => 3,
+		       circle => 4,
+		       cross => 5,
+		       times => 5,
+		       x => 5,
+		       triangle => 7,
+		       diamond => 11,
+		       star => 12,
+		       fcircle => 17,
+		       fsquare => 16,
+		       ftriangle => 13,
+		       fstar => 18,
+		       fdiamond => -4);
+
+  if ($sym =~ /\d/) {
+    throw JAC::StripChart::Error::BadConfig("Symbol index not defined - must lie between -4 and 31") 
+      if ($sym > 31 || $sym < -4);
+    $symindex = $sym;
+  } elsif ($sym =~ /[a-z]/) {
+    foreach my $symkey (keys %knownsymbols) {
+      $symindex = $knownsymbols{$symkey} if ($symkey eq $sym);
+    }
+  }
+  if ($symindex == -10) {
+    warnings::warnif(" Unknown symbol, '$sym': setting to default (+)");
+    $symindex = 7;
+  }
+
+  return $symindex;
+}
+
 =back
 
 =head1 AUTHOR

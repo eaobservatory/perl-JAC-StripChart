@@ -41,7 +41,7 @@ $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
 
 =item B<new>
 
- $cfg = new JAC::StripChart::Monitor::ORACIndex( indexfile => $file );
+ $cfg = new JAC::StripChart::Monitor::Random( randmin => -2 );
 
 Takes a hash argument with keys:
 
@@ -94,7 +94,7 @@ sub monid {
   return $self->{MonID};
 }
 
-=item B<monid>
+=item B<randmin>
 
 Smallest random value to return.
 
@@ -108,7 +108,7 @@ sub randmin {
   return $self->{DataMin};
 }
 
-=item B<monid>
+=item B<randmax>
 
 Largest random value to return.
 
@@ -121,6 +121,8 @@ sub randmax {
   }
   return $self->{DataMax};
 }
+
+=back
 
 =head1 General Methods
 
@@ -183,7 +185,7 @@ Place,Suite 330, Boston, MA  02111-1307, USA
 
 =head1 SEE ALSO
 
-L<JAC::StripChart>, L<JAC::StripChart::Monitor::ORACIndexFile>.
+L<JAC::StripChart>, L<JAC::StripChart::Monitor::ORACIndex>.
 
 =cut
 

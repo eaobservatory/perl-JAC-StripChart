@@ -74,7 +74,6 @@ sub new {
 		  ID => $id,
 		  DATA => [], # use array of arrays for now
 		  WINDOW => undef, # Number::Interval object
-		  NPTS => 0, # Number of data points within current WINDOW
 		 }, $class;
 
   return $ts;
@@ -346,7 +345,7 @@ sub bounds {
 
 =item B<npts>
 
-Store the number of data points which lie within the bounds of the
+Return the number of data points which lie within the bounds of the
 current window.
 
   $npts = $ts->npts;
@@ -355,6 +354,11 @@ Can optionally include the "outside" parameter so as to return values
 consistent with the C<data()> method.
 
   $npts = $ts->npts( outside => 1 );
+
+Finally, if the full number of points is required regardless of window,
+use the 'full' parameter
+
+  $npts = $ts->npts( full => 1 );
 
 =cut
 
@@ -369,12 +373,15 @@ sub npts {
     $opts{$a} = $inopts{$a} if exists $inopts{$a};
   }
 
-  my ($xdata, $ydata) = $self->data(xyarr => 1, %opts);
-  my $npts = ( defined $xdata ? scalar( @{ $xdata } ) : 0 );
+  my $data;
+  if ($inopts{full}) {
+    $data = $self->alldata();
+  } else {
+    ($data, my $ydata) = $self->data(xyarr => 1, %opts);
+  }
 
-  $self->{NPTS} = $npts;
-  return $self->{NPTS};
-
+  my $npts = ( defined $data ? scalar( @{ $data } ) : 0 );
+  return $npts;
 }
 
 =item B<prevdata>

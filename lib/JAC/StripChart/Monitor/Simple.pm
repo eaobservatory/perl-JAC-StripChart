@@ -65,7 +65,7 @@ sub new {
   if (@_) {
     my %args = @_;
     # loop over known important methods
-    for my $k (qw| monid indexfile tcol ycol|) {
+    for my $k (qw| monid indexfile tcol ycol tformat|) {
       $mon->$k($args{$k}) if exists $args{$k};
     }
   }
@@ -156,13 +156,20 @@ sub ycol {
 
 =item B<tformat>
 
-Set the Time frame units
+Set the Time format. Checks whether $tformat is a known format.
 
 =cut
 
 sub tformat {
   my $self = shift;
   if (@_) {
+    my $tformat = substr($_[0],0,3);
+# Check that Tformat is one of the allowed possibilities.
+# Return without setting tformat if no match.
+    if ($tformat !~ /mjd|ora|dmy|mdy|ymd|hms/i) {
+      warnings::warnif("Unknown time format for ".$self->monid." - unable to plot data");
+	return;
+      }
     $self->{Tformat} = shift;
   }
   return $self->{Tformat};

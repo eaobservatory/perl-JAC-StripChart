@@ -31,6 +31,7 @@ use warnings::register;
 use Carp;
 
 use JAC::StripChart::Error;
+use JAC::StripChart::TimeMap;
 
 use vars qw/ $VERSION /;
 $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
@@ -66,6 +67,7 @@ sub new {
 		   Window => 0,
 		   PlotTitle => ' ',
 		   Attr => ' ',
+		   TimeMap => new JAC::StripChart::TimeMap,
 		  }, $class;
 
   if (@_) {
@@ -129,6 +131,24 @@ sub device_class {
   } else {
     return $self->_default_dev_class;
   }
+}
+
+=item B<timemap>
+
+Map class used to convert the raw MJD times to the correct output format.
+Must be a C<JAC::StripChart::TimeMap> object.
+
+=cut
+
+sub timemap {
+  my $self = shift;
+  if (@_) {
+    my $arg = shift;
+    throw JAC::StripChart::Error::BadClass("Supplied argument not of class JAC::StripChart::TimeMap")
+	  unless UNIVERSAL::isa( $arg, "JAC::StripChart::TimeMap");
+    $self->{TimeMap} = $arg;
+  }
+  return $self->{TimeMap};
 }
 
 =item B<growt>
@@ -275,9 +295,7 @@ Return an array containing the monitor IDs for the current plot
 
 sub monitor_ids {
   my $self = shift;
-  
   my %attr = $self->attr;
-
   return (keys %attr);
 }
 

@@ -176,6 +176,7 @@ sub putData {
   # Store new data in it
   $ts->add_data( @data );
 
+
   # Relevance of prefix to min/max variables:
   # ts = entire timeseries
   # pl = plot bounds
@@ -254,33 +255,24 @@ sub putData {
   # Retrieve data limits within current window
   ($wxmin, $wxmax, $wymin, $wymax) = $ts->bounds;
 
-  # Set pl y-limits
-  # Catch case of zero points...
-  unless ( defined $wxmin ) {
-    $plxmin = 0;
-    $plxmax = 1;
-    $plymin = -1;
-    $plymax = 1;
-  } else {
-    # Calculate limits if autoscaling
-    if ($self->autoscale) {
-      if ($wymax == $wymin) {
-	if ($wymin == 0) { # Catch value = 0 case
-	  $plymin = -1;
-	  $plymax = 1;
-	} else {
-	  $plymax = 1.1*$wymax;
-	  $plymin = 0.9*$wymin;
-	}
+  # Calculate limits if autoscaling
+  if ($self->autoscale) {
+    if ($wymax == $wymin) {
+      if ($wymin == 0) { # Catch value = 0 case
+	$plymin = -1;
+	$plymax = 1;
       } else {
-	my $dy = $wymax - $wymin;
-	$plymax = $wymax + 0.1*$dy; # Expand by 10% of range
-	$plymin = $wymin - 0.1*$dy;
+	$plymax = 1.1*$wymax;
+	$plymin = 0.9*$wymin;
       }
     } else {
-      # Set ymin/max from Yscale attribute
-      ($plymin,$plymax) = $self->yscale;
+      my $dy = $wymax - $wymin;
+      $plymax = $wymax + 0.1*$dy; # Expand by 10% of range
+      $plymin = $wymin - 0.1*$dy;
     }
+  } else {
+    # Set ymin/max from Yscale attribute
+    ($plymin,$plymax) = $self->yscale;
   }
 
   # Select the correct subsection
@@ -290,8 +282,6 @@ sub putData {
   my ($xref, $yref);
   ($xref, $yref) = $ts->data(xyarr => 1, outside => 1);
   my $npts = $ts->npts( outside => 1 );
-#  print $monid." ".$npts ." ".scalar(@{$xref})."\n";
-#  print Dumper($xref);
 
   # Now need to find out whether the data range for plotting
   # has changed. If it has we need to clear and recreate the
@@ -307,22 +297,28 @@ sub putData {
     my @plotbounds = $plt->PBox;
 
     # see if the data bounds are inside these bounds
-    if ( $plxmin < $plotbounds[0] ||
-	 $plxmax > $plotbounds[1] ||
-	 $plymin < $plotbounds[2] ||
-	 $plymax > $plotbounds[3] ) {
+    if ( $wxmin < $plotbounds[0] ||
+	 $wxmax > $plotbounds[1] ||
+	 $wymin < $plotbounds[2] ||
+	 $wymax > $plotbounds[3] ) {
+
+      # If not and we are autoscaling then check and reset plot
+      # bounds if necessary to keep the largest values
+      if ($self->autoscale) {
+	$plymin = $plotbounds[2] if ($plymin > $plotbounds[2]);
+	$plymax = $plotbounds[3] if ($plymax < $plotbounds[3]);
+      }
+      # Only allow $plxmin/max to be used if $plxmax exceeds current
+      # x limit, else the original window is retained.
+      if ($plxmax < $plotbounds[1]) {
+	$plxmax = $plotbounds[1];
+	$plxmin = $plotbounds[0];
+      }
+
       # Clear the plot
       $isold = 0;
       $self->device->clear();
       undef $plt;
-
-      # Determine which limits need to change - X probably always, but
-      # not always Y
-      if ($plymin > $plotbounds[2]) {
-	$plymin = $plotbounds[2]; # Leave ymin as is
-      } elsif ($plymax < $plotbounds[3]) {
-	$plymax = $plotbounds[3]; # Leave ymax as is
-      }
 
       # But make sure that we retrieve all the cache for replotting
       # from the specified x-range
@@ -343,6 +339,33 @@ sub putData {
 
   # Register the correct plotting engine callbacks
   $self->_grfselect( $plt );
+
+  # Only want to plot new data, unless the plot is to be redrawn
+  my ($plxref, $plyref);
+  my $lastdata = $ts->lastdata; # return ref to array containing t,y pair.
+  # If a plot exists, and we have plotted data previously then
+  # determine the most recent data to plot.
+  if ( $isold && (defined ${$lastdata}[0]) ) {
+    my @xdata = @{$xref};
+    my @ydata = @{$yref};
+    my $lastx = ${$lastdata}[0];
+    my $lasty = ${$lastdata}[1];
+
+    # Pick out data newer than lastdata
+    my (@plxdata, @plydata);
+    foreach my $i (0..$#xdata) {
+      if ($xdata[$i] >= $lastx) { # >= important here
+	push (@plxdata, $xdata[$i]);
+	push (@plydata, $ydata[$i]);
+      }
+    }
+    $plxref = \@plxdata;
+    $plyref = \@plydata;
+  } else {
+    # If no plot, then use the whole range of values
+    $plxref = $xref;
+    $plyref = $yref;
+  }
 
   # Draw the plot axes if we have changed the plot bounds
   unless ($isold) {
@@ -386,15 +409,18 @@ sub putData {
     my $symcol = $self->_colour_to_index($attr->symcol);
     my $symbol = $self->_sym_to_index($attr->symbol);
     $plt->Set("colour(markers)",$symcol);
-    $plt->Mark($symbol, $xref, $yref);
+    $plt->Mark($symbol, $plxref, $plyref);
     if ($npts > 1) {
       my $linecol = $self->_colour_to_index($attr->linecol);
       my $linestyle = $self->_style_to_index($attr->linestyle);
       $plt->Set("colour(curves)", $linecol);
       $plt->Set("style(curves)", $linestyle);
-      $plt->PolyCurve($xref, $yref); 
+      $plt->PolyCurve($plxref, $plyref); 
     }
   }
+
+  # Store last data point plotted as ref to anon array
+  $ts->lastdata( [ ${$xref}[-1], ${$yref}[-1] ] );
 
   # return and wait for more data
   return;

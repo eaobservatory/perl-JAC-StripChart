@@ -245,7 +245,7 @@ sub putData {
   # Establish plot limits using growt and window
   # If no window defined, then set limits to entire range, regardless
   # of growt
-  unless ($window) {
+  if (!$window || (defined $window && $window <= 0)) {
     # Check if ts x-limits are equal...
     if ($tsxmin == $tsxmax) {
       if ($tsxmin == 0) { # Catch value = 0 case
@@ -293,7 +293,7 @@ sub putData {
   # Store plotting window
   $winlo = $plxmin;
   $winhi = $plxmax;
-  $ts->window($winlo, $winhi); 
+  $ts->window($winlo, $winhi);
 
   # Expand x-axis by 10% to allow chart to grow
   my $dx = $plxmax - $plxmin;

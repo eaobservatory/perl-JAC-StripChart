@@ -37,6 +37,7 @@ use File::stat;
 # Need MJD conversion
 use Astro::SLA;
 use Time::Piece;
+use Date::Format;
 
 use List::Util qw/ min /;
 
@@ -47,9 +48,6 @@ $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
 # have been associated with which files. This is attempting
 # to cache repeat requests to access the contents of a file.
 use vars qw/ %CACHE /;
-
-# Variable storing the oldest monitor position
-use vars qw/ $oldest /;
 
 =head1 METHODS
 
@@ -83,9 +81,12 @@ sub new {
   my $mon = bless {
 		   SimpleFile => undef,
 		   MonPos => {},
-#		   LastRead => 0,
-		   LastRead => {},
+		   LastRead => 0,
 		   Ncols => undef,
+		   Tcol => undef,
+		   Ycol => undef,
+		   Tformat => undef,
+		   Id => undef,
 		  }, $class;
 
   # Store filename (triggering read)
@@ -201,8 +202,6 @@ sub find_ncolumns {
   open my $handle, "< $file" or
     throw JAC::StripChart::Error::FatalError( "Unable to open file $file despite its existence: $!");
 
-  # If successful, then set LastRead attribute
-#  $self->last_read( time() );
   # Read file, looking for columns
   my $ncols;
   while (my $line = <$handle>) {
@@ -226,35 +225,72 @@ sub find_ncolumns {
 Time the data file was last read (using the epoch seconds). This is
 used to determine whether the data file should be re-read.
 
-Valid keys are derived using the C<_genkey> method.
-
-  $i->_last_read( $key, $newval );
-  $curval = $i->_last_read( $key );
-  %allvals = $i->_last_read();
-
-In the second example, 0 is returned rather than undef if no
-key is present.
-#  $last_read = $sf->last_read;
+  $last_read = $sf->last_read;
 
 =cut
 
 sub last_read {
-#  my $self = shift;
-#  if (@_) { $self->{LastRead} = shift; }
-#  return $self->{LastRead};
   my $self = shift;
-  if (@_) {
-    my $key = shift;
-    if (@_) {
-      $self->{LastRead}->{$key} = shift;
-    } else {
-      my $curval = $self->{LastRead}->{$key};
-      return (defined $curval ? $curval : 0);
-    }
-  } else {
-    return %{ $self->{LastRead} };
+  if (@_) { 
+    $self->{LastRead} = shift; 
   }
+  return $self->{LastRead};
+}
 
+=item B<tcol>
+
+Get/set the time column as passed to getData()
+
+  $tcol = $sf->tcol;
+
+=cut
+
+sub tcol {
+  my $self = shift;
+  if (@_) { $self->{Tcol} = shift; }
+  return $self->{Tcol};
+}
+
+=item B<ycol>
+
+Get/set the Y column as passed to getData()
+
+  $ycol = $sf->ycol;
+
+=cut
+
+sub ycol {
+  my $self = shift;
+  if (@_) { $self->{Ycol} = shift; }
+  return $self->{Ycol};
+}
+
+=item B<tformat>
+
+Get/set the time format as passed to getData()
+
+  $tformat = $sf->tformat;
+
+=cut
+
+sub tformat {
+  my $self = shift;
+  if (@_) { $self->{Tformat} = shift; }
+  return $self->{Tformat};
+}
+
+=item B<id>
+
+Get/set the chart ID passed to getData()
+
+  $id = $sf->id;
+
+=cut
+
+sub id {
+  my $self = shift;
+  if (@_) { $self->{Id} = shift; }
+  return $self->{Id};
 }
 
 =head1 General Methods
@@ -283,6 +319,12 @@ sub getData {
   $self->_checkparams( 4, \@_);
   my ($id, $tcol, $ycol, $tformat) = @_;
 
+  # Set the relevant attributes
+  $self->tcol($tcol);
+  $self->ycol($ycol);
+  $self->tformat($tformat);
+  $self->id($id);
+
   # make sure we have a column count
   my $ncol = $self->ncols;
   if (!$ncol) {
@@ -306,19 +348,14 @@ sub getData {
   # Generate a unique key
   my $key = $self->_genkey( $id, $tcol, $ycol);
 
-  # Read (get) the stored reference time for this chart
-  my $reftime = $self->_monitor_posn( $key );
+  # Read (get) the stored reference time for this chart = 0 first time round.
+  my $reftime = $self->_convert_to_mjd( $self->_monitor_posn( $key ), $self->tformat );
+#  print $reftime ." ". $self->last_write($self->filename) ."\n";
 
-  return if ($self->last_read($key) > $self->last_write($self->filename));
-
-  if (!$oldest) {
-    $oldest = $reftime ;
-  } else {
-    $oldest = $self->oldest_monpos;
-  }
+  return if ($self->last_read > $self->last_write($self->filename) && $reftime > $self->last_write($self->filename));
 
   # Read new data and store in @newdata
-  my @newdata = $self->readsimple($id, $tcol, $ycol, $tformat, $key);
+  my @newdata = $self->readsimple( $key );
 
   # return the answer (time is in MJD)
   return map { [ $_->[0], $_->[1] ] } @newdata;
@@ -330,7 +367,8 @@ sub getData {
 
 A method for returning the two columns of data of interest.
 
-  @data = $self->readsimple( $tcol, $ycol, $id, $tformat, $key);
+#  @data = $self->readsimple( $tcol, $ycol, $id, $tformat, $key);
+  @data = $self->readsimple( $key);
 
 where $tcol is the index of the column representing time, $ycol
 is the index of the column, etc
@@ -341,18 +379,32 @@ sub readsimple {
   my $self = shift;
 
   # Fail if less than 5 parameters are present
-  $self->_checkparams( 5, \@_ );
-  my ($id, $tcol, $ycol, $tformat, $key) = @_;
+#  $self->_checkparams( 5, \@_ );
+#  my ($id, $tcol, $ycol, $tformat, $key) = @_;
+  my $key = shift;
 
   # Get the filename and see if it is present
   my $file = $self->filename;
   return () unless (-e $file);
 
-  # open the file
+  # Get relevant attributes
+  my $tcol = $self->tcol;
+  my $ycol = $self->ycol;
+  my $tformat = $self->tformat;
+  my $id = $self->id;
+
+  # Open the file
   open my $handle, "< $file"
     or throw JAC::StripChart::Error::FileNotFound("Error opening file $file: $!");
 
-  my @plotdata;
+  my (@plotdata, $oldest);
+
+  # Set $oldest to oldest monitor position or 0 if first time through
+  if ($self->_monitor_posn( $key ) == 0){
+    $oldest = 0;
+  } else {
+    $oldest = $self->oldest_monpos;
+  }
 
   # Read successive lines from file
   while (my $line = <$handle>) {
@@ -363,7 +415,7 @@ sub readsimple {
     # Convert time data to MJD
     my $tdata = $self->_convert_to_mjd($data[$tcol-1], $tformat);
     next if $tdata <= $self->_convert_to_mjd($oldest, $tformat);
-    print $tdata."   ".$oldest."\n";
+#    print $tdata."   ".$oldest."\n";
     push (@plotdata, [ $tdata, $data[$ycol-1] ]);
 # Set monitor position to last line in file
     $self->_monitor_posn( $key, $data[$tcol-1]);
@@ -371,7 +423,8 @@ sub readsimple {
 
   close($handle);
   # update the last_read time
-  $self->last_read( $key, time() );
+  my $readtime = gmtime;
+  $self->last_read( $readtime->mjd );
 
   return @plotdata;
 }
@@ -433,7 +486,7 @@ sub _checkparams {
 
 Routine to convert time format to MJD
 
-  my $mjdtime = _convert_to_mjd($timedata, $tformat);
+  my $mjdtime = $self->_convert_to_mjd($timedata, $tformat);
 
 $timedate is a string containing the data/time information which is
 split along specific types of separator (:, / and - allowed).
@@ -447,7 +500,7 @@ sub _convert_to_mjd {
       $separator, $frac, $mjd);
 
   # Return if zero
-  if ($datetime == 0) {
+  if ($datetime eq 0) {
     $mjd = 0;
     return $mjd;
   }
@@ -476,7 +529,6 @@ sub _convert_to_mjd {
     return $datetime;
   } else {
     if ($tformat =~ /ora/i) {
-#      print $datetime ."\n";
       $day = substr($datetime,6,2);
       $month = substr($datetime,4,2);
       $year = substr($datetime,0,4);
@@ -546,7 +598,7 @@ sub _abs_path {
 =item B<last_write>
 
 Internal method to determine the time a file was last written to. Uses the 
-File::stat module. 
+File::stat and Date::Format modules.
 
   my $last_write_time = $self->last_write($self->filename);
 
@@ -556,7 +608,11 @@ sub last_write {
   my $self = shift;
   my $file = shift;
   my $inode = stat($file);
-  return $inode->mtime;
+  my $writetime = $inode->mtime;
+  my $timeformat = "%Y:%m:%d:%T";
+  my $ymdtime = time2str($timeformat,$writetime,"GMT");
+  my $lastwritemjd = $self->_convert_to_mjd($ymdtime, "ymd");
+  return $lastwritemjd;
 }
 
 =back

@@ -23,6 +23,7 @@ use warnings::register;
 use Carp;
 
 use JAC::StripChart::Error;
+use JAC::StripChart::Monitor::ORACIndexFile;
 
 use vars qw/ $VERSION /;
 $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
@@ -56,7 +57,7 @@ sub new {
 
   # Create object
   my $mon = bless {
-		   IndexFile => undef,
+		   IndexObject => undef,
 		   Column => undef,
 		   Filter => {},
 		  }, $class;
@@ -79,19 +80,42 @@ sub new {
 
 =over 4
 
-=item B<filename>
+=item B<indexfile>
 
 Name of the ORAC-DR index file used as the data source for this
 monitor.
+
+Returns undef if no index file has yet been stored.
 
 =cut
 
 sub indexfile {
   my $self = shift;
   if (@_) {
-    $self->{IndexFile} = shift;
+    my $file = shift;
+    $self->index( new JAC::StripChart::Monitor::ORACIndexFile( $file ) )
   }
-  return $self->{IndexFile};
+  return (defined $self->index ? $self->index->indexfile : undef);
+}
+
+=item B<index>
+
+The underlying Monitor::IndexFile object associated with this
+object.
+
+=cut
+
+sub index {
+  my $self = shift;
+  if (@_) {
+    # Check class
+    my $obj = shift;
+    throw JAC::StripChart::Error::BadArgs("Supplied object to method 'index' must be of class 'JAC::StripChart::Monitor::ORACIndexFile' but was class '".ref($obj)."'")
+      unless UNIVERSAL::isa($obj, "JAC::StripChart::Monitor::ORACIndexFile");
+    $self->{IndexObject} = $obj;
+
+  }
+  return $self->{IndexObject};
 }
 
 =item B<column>
@@ -151,10 +175,15 @@ last time we were asked for data.
 where ID is a unique identifier associated with a specific
 strip chart. e.g. "chart1", "chart2".
 
+@newdata contains a sorted list where each entry is a reference to a 2
+element array. First element is the time in MJD.
+
 =cut
 
 sub getData {
-
+  my $self = shift;
+  my $id = shift;
+  return $self->index->getData( $id, $self->column, $self->filter );
 }
 
 =back

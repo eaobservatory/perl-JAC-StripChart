@@ -234,58 +234,28 @@ sub data {
 	      outside => 0,
 	      @_);
 
-  # Somewhere to store the output data
-  my @data;
-
   # Get all of the data
-  my @alldata = $self->alldata;
+  my $alldata = $self->alldata;
 
   # Requested interval
   my $int = $self->window;
-  $int = new Number::Interval( Min => undef, Max => undef)
-    unless defined $int;
+  my ($min, $max);
+  ($min,$max) = $int->minmax() if defined $int;
 
-  # Loop through data to find limits
-  my $first;
-  my $last;
-  foreach my $i (0..$#alldata) {
+  # Find the index
+  my $first = $self->_find_index( 'min', $alldata, $int->min );
+  my $last  = $self->_find_index( 'max', $alldata, $int->max, $first );
 
-    ### This needs to be made more efficient such that it stops
-    # the first time we go out of range since we know the data are sorted
-
-    # Add data within window
-    if ($int->contains( $alldata[$i]->[0] )) {
-      push ( @data, $alldata[$i] );
-
-      # store the indices of the first and last hit
-      $first = $i unless defined $first;
-      $last = $i;
-    }
+  # deal with "outside"
+  if ($opts{outside}) {
+    $first-- if ($first > 0 && (defined $int->min && 
+				$alldata->[$first]->[0] != $int->min));
+    $last++  if ($last < $#$alldata && (defined $int->max &&
+					$alldata->[$last]->[0] != $int->max));
   }
 
-  # Store the outside values if required (this is useful for plotting lines)
-  # but not if the lower/upper level of the window is exactly matched
-  # by the first/last data point
-  if ($opts{outside} && defined $first) {
-
-    # get the current extrema
-    my $dtmin = $data[0]->[0];
-    my $dtmax = $data[-1]->[0];
-
-    # First see if the min point equals the window
-    if ($first > 0) {
-      my $wmin = $int->min;
-      # note that wmin must be defined, else $first would be 0
-      unshift( @data, $alldata[$first-1]) if $wmin < $dtmin;
-    }
-
-    # then see if the max point equals the window
-    if ($last < $#alldata) {
-      my $wmax = $int->max;
-      # note that wmax must be defined, else $last would be $#alldata
-      push( @data, $alldata[$last+1]) if $wmax > $dtmax;
-    }
-  }
+  # get the slice
+  my @data = @$alldata[$first..$last];
 
   if ($opts{xyarr}) {
     # If separate arrays wanted, split data into 2 arrays
@@ -560,6 +530,76 @@ sub prevdata {
 }
 
 =back
+
+=begin _PRIVATE_METHODS_
+
+=head2 Private Methods
+
+=over 4
+
+=item B<_find_index>
+
+=cut
+
+sub _find_index {
+  my $self = shift;
+  my $type = shift;
+  my $data = shift;
+  my $ref = shift;
+  my $start = shift || 0;
+
+  # return immediately if no reference -Inf or +Inf
+  if (!defined $ref) {
+    return 0 if $type eq 'min';
+    return $#$data if $type eq 'max';
+  }
+
+  # determine reference values
+  my $low = $data->[0]->[0];
+  my $high = $data->[-1]->[0];
+
+  # and simple values
+  return 0 if ( $type eq 'min' && $low >= $ref );
+  return $#$data if ( $type eq 'max' && $high <= $ref );
+
+  # iterate to the correct value
+  my $left = 0;
+  my $right = $#$data;
+
+  while (abs($left - $right) > 1) {
+    my $middle = int(($right+$left)/2);
+    my $midval = $data->[$middle]->[0];
+    my $leftval = $data->[$left]->[0];
+    my $rightval = $data->[$right]->[0];
+
+#    print "Ref: $ref  Left: $leftval  Right: $rightval Middle: $midval\n";
+
+    return $left if $leftval == $ref;
+    return $right if $rightval == $ref;
+    return $middle if $midval == $ref;
+
+    # binary chop
+    if ( $leftval <= $ref && $midval >= $ref) {
+      # the correct answer is in this half
+#      print "LEFT SIDE:  $left - $right\n";
+      $right = $middle;
+    } else {
+      # it is in the right hand half
+      $left = $middle;
+#      print "RIGHT SIDE:  $left - $right\n";
+    }
+  }
+
+  # now we choose the left or right value depending on whether
+  # we are wanting the min or max limit
+  return $right if $type eq 'min';
+  return $left if $type eq 'max';
+
+}
+
+=back
+
+=end _PRIVATE_METHODS_
 
 =head1 AUTHOR
 

@@ -417,28 +417,24 @@ sub bounds {
 
   # clear the window and retain the current values
   # we also have to retain the windowed cache
-  my @wcache;
-  my $oldwin;
+
+  # get either all the data or a subset
+  my $data;
   if ($full) {
-    @wcache = $self->wbounds_cache;
-    $oldwin = $self->window;
-    $self->window( undef, undef );
+    $data = $self->alldata();
+  } else {
+    $data = $self->data();
   }
 
-  # get the data within the window
-  my ($tdataref, $ydataref) = $self->data(xyarr => 1);
-
-  # reset the windowing
-  $self->window( $oldwin ) if defined $oldwin;
-  $self->wbounds_cache( \@wcache ) if @wcache;
-
   # sorted order so the tmin and tmax are easy
-  my $tmin = $tdataref->[0];
-  my $tmax = $tdataref->[-1];
+  my $tmin = $data->[0]->[0];
+  my $tmax = $data->[-1]->[0];
 
-  # we must calculate the Y range
-  my $ymin = min( @$ydataref );
-  my $ymax = max( @$ydataref );
+  # we must calculate the Y range, and we therefore need
+  # the Y data in a single array (even if that costs us a lot of memory)
+  my @ydata = map { $_->[1] } @$data;
+  my $ymin = min( @ydata );
+  my $ymax = max( @ydata );
 
   # cache the result
   if ($full) {

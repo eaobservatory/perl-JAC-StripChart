@@ -61,6 +61,7 @@ sub new {
 		   Config => undef,
 		   Charts => [],
 		   Devices => [],
+		   CallBack => undef,
 		  }, $class;
 
 
@@ -132,8 +133,36 @@ sub devices {
   return @{ $self->{Devices} };
 }
 
+=item B<callback>
+
+A routine that will be called from within the update() method to allow
+additional attribute handling to be performed periodically. 
+
+  $st->callback( \&mycb );
+  $st->callback( [ \&mycb, $arg1, $arg2 ] );
+
+If a reference to an array is passed in, it is assumed to 
+include additional arguments that should be sent to the callback.
+
+Array callbacks don't currently work. There seems to be a bizarre
+reference counting problem.
 
 =cut
+
+sub callback {
+  my $self = shift;
+  if (@_) {
+    my $arg = shift;
+    if (not ref( $arg ) ) {
+      throw JAC::StripChart::Error::BadArgs("Argument to callback() method is not a reference");
+    } elsif (ref($arg) eq 'ARRAY' && not ref($arg->[0]) ) {
+      throw JAC::StripChart::Error::BadArgs("first element in array given to callback() method is not a reference");
+    }
+
+    $self->{CallBack} = $arg;
+  }
+  return ($self->{CallBack});
+}
 
 =back
 
@@ -232,6 +261,22 @@ Ask each strip chart to update its contents.
 
 sub update {
   my $self = shift;
+
+  # first run the callback if it is present
+  if ($self->callback) {
+    my $cb = $self->callback();
+    if (ref($cb) eq "CODE") {
+      $cb->();
+    } elsif (ref($cb) eq 'ARRAY') {
+      my $cb2 = shift(@$cb);
+      throw JAC::StripChart::Error::FatalError("unrecognized callback type. Not Code ref") unless ref($cb2) eq 'CODE';
+      $cb2->( @$cb );
+    } else {
+      throw JAC::StripChart::Error::FatalError("unrecognized callback type");
+    }
+  }
+
+  # now process the charts
   for my $c ($self->charts) {
     $c->update();
   }

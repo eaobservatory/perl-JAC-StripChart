@@ -151,6 +151,17 @@ sub select {
   pgslct( $self->devid );
 }
 
+=item B<clear>
+
+Clear this device, ready for plotting.
+
+=cut
+
+sub clear {
+  my $self = shift;
+  $self->select;
+  pgeras;
+}
 
 =back
 

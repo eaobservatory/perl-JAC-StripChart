@@ -129,6 +129,19 @@ sub select {
   return;
 }
 
+=item B<clear>
+
+Clear this device, ready for plotting.
+
+=cut
+
+sub clear {
+  my $self = shift;
+  $self->select;
+  pgeras;
+}
+
+
 =back
 
 =head1 AUTHOR

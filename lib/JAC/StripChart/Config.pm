@@ -269,7 +269,7 @@ sub read_config {
 
     # Read the sink options from the chart
     my %plotdefn;
-    for my $par ( qw| autoscale yscale yunits growt window output plottitle | ) {
+    for my $par ( qw| autoscale yscale yunits growt window tunits plottitle | ) {
       next unless exists $data{$chartid}->{$par};
       $plotdefn{$par} = $self->_to_array($data{$chartid}->{$par});
     }

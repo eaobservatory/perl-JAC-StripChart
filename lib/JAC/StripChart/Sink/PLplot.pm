@@ -178,7 +178,7 @@ sub init {
   # Default char size is a bit too big - reduce to 60%
   plschr(0,0.6);
   plsetopt("db",""); # Use double-buffer option to redraw plot
-#  plsetopt("np",""); # No-pause
+  plsetopt("np",""); # No-pause
 
   # now initialise the strip chart
   my $id = plstripc( "bcnst", "bcnstv", $tmin, $tmax,

@@ -108,11 +108,33 @@ sub astCache {
       } else {
 	# Create new timeseries object to fill with data
 	$self->{CACHE}->{$monid} = new JAC::StripChart::TimeSeries( $monid );
+	$self->monitors($monid);
 	return $self->{CACHE}->{$monid};
       }
     }
   }
   return %{ $self->{CACHE} }; # De-reference hash on return
+}
+
+=item B<monitors>
+
+Store/return the monitors for the current plot
+
+  $self->monitors( $monid );
+
+  @monitors = $self->monitors;
+
+=cut
+
+sub monitors {
+  my $self = shift;
+  if (@_) {
+    my $monid = shift;
+    push (@{ $self->{MONITORS} }, $monid);
+    return;
+  } else {
+    return @{ $self->{MONITORS} };
+  }
 }
 
 =back
@@ -380,6 +402,7 @@ sub putData {
     # retrieve all other data from cache
     my %cache = $self->astCache;
     foreach my $mon (keys %cache ) {
+
       unless ($mon eq $monid) {
         # Retrieve cached data
         my $tscache = $self->astCache( $mon );
@@ -407,8 +430,47 @@ sub putData {
     } # end foreach $mon
   } # end unless $isold 
 
-#  my $chan = new Starlink::AST::Channel( sink => sub { print "$_[0]\n"; } );
-#  $chan->Write( $plt );
+
+  # Position offsets for plot legends
+  my ($delta,$j) = (0.05,0);
+  my $x0 = 0.8;
+  my $y0 = 0.95;
+  my @keys = $self->monitors;
+  foreach my $mon (@keys) {
+    my $plotattr = $self->attr($mon);
+    # Plot legend...
+    $plt->Set("Current=1");
+    # Retrieve plot attributes
+    my $symcol = $self->_colour_to_index($plotattr->symcol);
+    my $symbol = $self->_sym_to_index($plotattr->symbol);
+    my $linecol = $self->_colour_to_index($plotattr->linecol);
+    my $linestyle = $self->_style_to_index($plotattr->linestyle);
+    # Plot text label
+    # Initial position of plot legend
+    my ($xpos, $ypos);
+    $xpos = $x0;
+    $ypos = $y0 - $delta*$j;
+    $j++;
+
+    $plt->Set("Size(Strings)=1.5");
+    $plt->Set("Colour(Strings)",$linecol);
+    $plt->Text($mon,[$xpos,$ypos],[0.0,1.0],"CC");
+    # Determine position of plot legend
+    my ($lbox, $ubox) = $plt->BoundingBox;
+    my $xpt1 = 0.95 * $lbox->[0];
+    my $ypt1 = $lbox->[1];
+    my $xleg = [ $xpt1, ($xpt1 - 0.075) ];
+    my $ymid = 0.5 * ( $lbox->[1] + $ubox->[1] );
+    my $yleg = [ $ymid, $ymid ];
+    # Plot legend
+    $plt->Set("colour(curves)", $linecol);
+    $plt->Set("style(curves)", $linestyle);
+    $plt->PolyCurve($xleg, $yleg);
+    $plt->Set("colour(markers)", $symcol);
+    $plt->Mark($symbol, $xleg, $yleg);
+    $plt->Set("Current=2");
+  }
+
 
   # Plot the data using the requested attributes
   if ($npts > 0) {
@@ -459,8 +521,6 @@ sub _grfselect {
   return;
 }
 
-
-=back
 
 =head1 AUTHOR
 

@@ -307,9 +307,10 @@ sub getData {
 #  print Dumper(\@cache);
 
   # return the answer (time should be in MJD UT)
-  return map { [ $self->_oractime_to_mjd($_->[0]),
-		 $_->[1]
-	       ] } @newdata;
+  return map { [ $_->[0], $_->[1] ] } @newdata;
+#  return map { [ $self->_oractime_to_mjd($_->[0]),
+#		 $_->[1]
+#	       ] } @newdata;
 #return @newdata;
 }
 
@@ -350,12 +351,12 @@ sub readsimple {
     $line =~ s/^\s+//g;     # Delete leading blanks
     my @data = split(/\s+/,$line);
 
-    # This assumes the time column is in numerical format
-    next if $data[$tcol-1] < $oldest;
-#    # Convert time data to ORACTIME
-#    my $tdata = convert_to_oractime($data[$tcol-1], $tformat);
-#    push (@plotdata, [ $tdata, $data[$ycol-1] ]);
-    push (@plotdata, [ $data[$tcol-1], $data[$ycol-1] ]);
+    # Convert time to MJD - this has to be done somewhere, might as well try it here
+    my $tdata = $self->_convert_to_mjd($data[$tcol-1], $tformat);
+    # String comparison of time in case time format includes non digits.
+    next if $tdata lt $oldest;
+    push (@plotdata, [ $tdata, $data[$ycol-1] ]);
+#    push (@plotdata, [ $data[$tcol-1], $data[$ycol-1] ]);
   }
 
   return @plotdata;
@@ -414,6 +415,100 @@ sub _checkparams {
     if ($nfound != $nparams);
 
 }
+
+=item B<_convert_to_mjd>
+
+Routine to convert time format to MJD
+
+  my $mjdtime = _convert_to_mjd($timedata, $tformat);
+
+=cut
+
+sub _convert_to_mjd {
+  my $self = shift;
+  my ($datetime, $tformat) = @_;
+  my ($day, $month, $year, $hour, $minute, $seconds, 
+      $separator, $frac, $mjd);
+
+  # Find separator
+  ($separator = $datetime) =~ s/[\d+\.]//g;
+
+
+  # ORACTIME should not have a separator...
+  if ($tformat =~ /ora/i && $separator ne "") {
+    warnings::warnif("Time format does not look like ORACTIME");
+      return;
+  }
+
+  # Trim separator string to just 1st character
+  if ($separator eq "") {
+    $separator = " ";
+  } else {
+    $separator = substr($separator,0,1);
+  }
+#  print $tformat ." ". $datetime ." ". $separator." :-)\n";
+
+  # Check separator is a legal one, if present (ORACTIME and MJD have no separators)
+  warnings::warnif("Unknown separator - unable to parse time string") unless ($separator =~ /[:\/-]|[\s]/);
+
+  if ($tformat =~ /mjd/i) {
+    return $datetime;
+  } else {
+    if ($tformat =~ /ora/i) {
+      $day = substr($datetime,6,2);
+      $month = substr($datetime,4,2);
+      $year = substr($datetime,0,4);
+      $frac = $datetime - int($datetime);
+    } else {
+      my @datetime = split(/$separator/,$datetime);
+      if (scalar(@datetime) != 5) {
+	warnings::warnif("Date/Time does not appear to be a known format - unable to continue");
+	  return;
+      }
+      if ($tformat =~ /dmy/i) {
+	$day = $datetime[0];
+	$month = $datetime[1];
+	$year = $datetime[2];
+	$hour = $datetime[3];
+	$minute = $datetime[4];
+	$seconds = $datetime[5];
+      } elsif ($tformat =~ /mdy/i) {
+	$day = $datetime[1];
+	$month = $datetime[0];
+	$year = $datetime[2];
+	$hour = $datetime[3];
+	$minute = $datetime[4];
+	$seconds = $datetime[5];
+      } elsif ($tformat =~ /ymd/i) {
+	$day = $datetime[2];
+	$month = $datetime[1];
+	$year = $datetime[0];
+	$hour = $datetime[3];
+	$minute = $datetime[4];
+	$seconds = $datetime[5];
+      } elsif ($tformat =~ /hms/i) {
+	$day = 1;
+	$month = 1;
+	$year = 1;
+	$hour = $datetime[0];
+	$minute = $datetime[1];
+	$seconds = $datetime[2];
+      } else {
+	warnings::warnif("Unknown time format - something has gone wrong here.");
+      }
+    }
+    # Convert date to MJD number
+    Astro::SLA::slaCldj( $year, $month, $day, $mjd, my $j );
+    warnings::warnif("Bad status in convert_to_mjd from slaCldj: $j")
+      unless $j == 0;
+    # Calculate day fraction
+    $frac = ($hour + $minute/60.0 + $seconds/3600.0)/24.0 unless defined ($frac);
+    $mjd += $frac;
+  }
+
+  return $mjd;
+}
+
 
 =back
 
@@ -510,4 +605,3 @@ Place,Suite 330, Boston, MA  02111-1307, USA
 =cut
 
 1;
-

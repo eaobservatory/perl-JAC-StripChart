@@ -265,6 +265,22 @@ sub attr {
 
 }
 
+=item B<monitor_ids>
+
+Return an array containing the monitor IDs for the current plot
+
+  @monitorids = $self->monitor_ids;
+
+=cut
+
+sub monitor_ids {
+  my $self = shift;
+  
+  my %attr = $self->attr;
+
+  return (keys %attr);
+}
+
 =back
 
 =head2 General Methods

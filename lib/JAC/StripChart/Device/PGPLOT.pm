@@ -58,12 +58,16 @@ sub new {
   my $class = ref($proto) || $proto;
   my $dev = $class->SUPER::new( @_ );
 
-  my $devid = pgopen( '/xserve' );
+  my @nxy = $dev->nxy;
+  my @dims = $dev->dims();
+  $ENV{PGPLOT_XW_WIDTH} = $dims[0] if $dims[0] > 0;
+
+  my $devid = pgopen( '/xw' );
   throw JAC::StripChart::Error::BadPlotDevice("Error opening PGPLOT window")
     if $devid <= 0;
 
   # subdivide the page
-  pgsubp( $dev->nxy );
+  pgsubp( @nxy );
 
   # store the device id
   $dev->devid( $devid );

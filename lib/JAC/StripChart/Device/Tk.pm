@@ -83,12 +83,21 @@ sub new {
   # some where to store the canvas objects
   my @canv;
 
-  # loop over nx ny
+  # Find the requested number of charts
   my ($nx, $ny ) = $dev->nxy;
+
+  # calculate the width and height of each canvas
+  my %cdims;
+  my @dims = $dev->dims;
+  $cdims{"-width"} = $dims[0] / $nx if $dims[0] > 0;
+  $cdims{"-height"} = $dims[1] / $ny if $dims[1] > 0;
+
+  # loop over nx ny
   for my $i ( 1 .. $nx ) {
     for my $j ( 1 .. $ny ) {
       my $index = $dev->_ij_to_index( $i, $j );
       $canv[ $index ] = $parent->Canvas( -background => 'white',
+					 %cdims,
 				       )->grid( -column => ($i-1),
 						-row => ($j-1),
 						-sticky => 'nsew',

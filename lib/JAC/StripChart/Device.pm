@@ -48,6 +48,7 @@ Supported options are:
 
   nxy =>   Ref to array indicating the number of x and y subplots
   context => Context in which the plot should be created.
+  dims => Ref to array indicating the output chart dimensions in pixels
 
 The context will be specific to a particular device so a device should
 check that a context is relevant rather than assuming it is
@@ -67,10 +68,12 @@ sub new {
 		   DEVID => undef,
 		   CONTEXT => undef,
 		   NXY => [1,1],
+		   DIMS => [0,0],
 		  }, $class;
 
   # Read the required x,y subplots and other arguments
   @{$dev->{NXY}} = @{ $args{nxy} } if exists $args{nxy};
+  @{$dev->{DIMS}} = @{ $args{dims} } if exists $args{dims};
   $dev->context( $args{context} ) if exists $args{context};
 
   return $dev;
@@ -108,6 +111,25 @@ created.
 sub nxy {
   my $self = shift;
   return @{ $self->{NXY} };
+}
+
+=item B<dims>
+
+Dimensions of the output device. This will be in pixels.  If no
+dimensions are specified (or explicit 0,0) the default values will be
+used.
+
+ @dims = $dev->dims();
+
+=cut
+
+sub dims {
+  my $self = shift;
+  if (@_) {
+    my @d = (ref($_[0]) ? @{ $_[0] } : @_ );
+    @{ $self->{DIMS} } = @d;
+  }
+  return @{ $self->{DIMS} };
 }
 
 =item B<context>

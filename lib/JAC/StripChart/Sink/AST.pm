@@ -141,6 +141,9 @@ sub init {
   my @attrs = @_;
   $self->attr(@attrs);
 
+  # Update colours to check for duplicates
+  $self->_update_line_colours( $self->attr );
+
   # Configure the timemap (we may want to make this choice
   # configurable so I'm writing this as if it is)
 #  my $output = 'hours';  # days or radians or hours or unit

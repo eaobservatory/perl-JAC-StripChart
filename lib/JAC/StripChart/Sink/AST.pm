@@ -142,13 +142,12 @@ sub init {
   $self->attr(@attrs);
 
   # Create the AST plot and set the plotting attributes
-  my $title = $self->plottitle;
-  my $yunits = $self->yunits;
-  # Other labels are not defined yet
-#  my $xlabel;
-#  my $ylabel;
-#  my $xunits;
-  my $fr = new Starlink::AST::Frame( 2, "title=$title,label(1)=Time,unit(1)=MJD,label(2)=Flux,unit(2)=$yunits" );
+#  my $title = $self->plottitle;
+#  my $yunits = $self->yunits;
+
+#  my $fr = new Starlink::AST::Frame( 2, "title=$title,label(1)=Time,unit(1)=MJD,label(2)=Flux,unit(2)=$yunits" );
+  my $fr = new Starlink::AST::Frame( 2, "title=StripChart,label(1)=Time,unit(1)=MJD,label(2)=Flux,unit(2)=Jy" );
+
 
   $self->astFrame( $fr );
 
@@ -173,9 +172,11 @@ sub putData {
   # Retrieve or create new timeseries object
   my $ts = $self->astCache( $monid );
 
+  # Sort data by time (useful later)
+  @data = sort { $a->[0] <=> $b->[0] } @data;
+
   # Store new data in it
   $ts->add_data( @data );
-
 
   # Relevance of prefix to min/max variables:
   # ts = entire timeseries
@@ -281,7 +282,6 @@ sub putData {
   # Retrieve data within the plot window
   my ($xref, $yref);
   ($xref, $yref) = $ts->data(xyarr => 1, outside => 1);
-  my $npts = $ts->npts( outside => 1 );
 
   # Now need to find out whether the data range for plotting
   # has changed. If it has we need to clear and recreate the
@@ -342,35 +342,41 @@ sub putData {
 
   # Only want to plot new data, unless the plot is to be redrawn
   my ($plxref, $plyref);
-  my $lastdata = $ts->lastdata; # return ref to array containing t,y pair.
+  # Find most recent time
+  my $lastdata = $data[0]->[0]; 
+  my $lasttime = $ts->prevdata($lastdata); # Return ref to earliest point
+#  print Dumper($lasttime);
+
   # If a plot exists, and we have plotted data previously then
   # determine the most recent data to plot.
-  if ( $isold && (defined ${$lastdata}[0]) ) {
-    my @xdata = @{$xref};
-    my @ydata = @{$yref};
-    my $lastx = ${$lastdata}[0];
-    my $lasty = ${$lastdata}[1];
-
-    # Pick out data newer than lastdata
-    my (@plxdata, @plydata);
-    foreach my $i (0..$#xdata) {
-      if ($xdata[$i] >= $lastx) { # >= important here
-	push (@plxdata, $xdata[$i]);
-	push (@plydata, $ydata[$i]);
-      }
-    }
-    $plxref = \@plxdata;
-    $plyref = \@plydata;
+  my $npts = $ts->npts( outside => 1 );
+  if ( $isold && $lasttime->[0] ) {
+    # Set window if the new points lie within the current window
+    $ts->window($lasttime->[0], undef) if ($lasttime->[0] > $plxmin);
+    # Retrieve data
+    ($plxref,$plyref) = $ts->data(xyarr => 1);
+    # Re-calculate number of points to plot
+    $npts = $ts->npts; 
   } else {
     # If no plot, then use the whole range of values
     $plxref = $xref;
     $plyref = $yref;
   }
 
+
   # Draw the plot axes if we have changed the plot bounds
+  # Reset window to full range
+  $ts->window($winlo, $winhi); 
   unless ($isold) {
+
+    # Set plotting attributes:
     $plt->Set("Labelling","exterior"); # Doesn't seem to do anything...
+    my $title = $self->plottitle;
+    $plt->Set("Title",$title);
+    $plt->Set("TitleGap","0.01");
+
     $plt->Grid();
+
     # retrieve all other data from cache
     my %cache = $self->astCache;
     foreach my $mon (keys %cache ) {
@@ -387,18 +393,18 @@ sub putData {
 	  my $tsscol = $self->_colour_to_index($tsattr->symcol);
 	  my $tssym = $self->_sym_to_index($tsattr->symbol);
 	  my ($xcache, $ycache) = $tscache->data(xyarr => 1, outside => 1);
-	  $plt->Set("colour(markers)",$tsscol);
+	  $plt->Set("colour(markers)", $tsscol);
 	  $plt->Mark($tssym, $xcache, $ycache);
 	  if ($ncachepts > 1) {
 	    my $tslcol = $self->_colour_to_index($tsattr->linecol);
 	    my $tslstyle = $self->_style_to_index($tsattr->linestyle);
-	    $plt->Set("colour(curves)",$tslcol);
+	    $plt->Set("colour(curves)", $tslcol);
 	    $plt->Set("style(curves)", $tslstyle);
 	    $plt->PolyCurve($xcache, $ycache);
 	  }
 	}
-      } # end unless
-    } # end foreach
+      } # end unless $monid
+    } # end foreach $mon
   } # end unless $isold 
 
 #  my $chan = new Starlink::AST::Channel( sink => sub { print "$_[0]\n"; } );
@@ -410,6 +416,7 @@ sub putData {
     my $symbol = $self->_sym_to_index($attr->symbol);
     $plt->Set("colour(markers)",$symcol);
     $plt->Mark($symbol, $plxref, $plyref);
+
     if ($npts > 1) {
       my $linecol = $self->_colour_to_index($attr->linecol);
       my $linestyle = $self->_style_to_index($attr->linestyle);
@@ -418,9 +425,6 @@ sub putData {
       $plt->PolyCurve($plxref, $plyref); 
     }
   }
-
-  # Store last data point plotted as ref to anon array
-  $ts->lastdata( [ ${$xref}[-1], ${$yref}[-1] ] );
 
   # return and wait for more data
   return;
@@ -480,7 +484,7 @@ PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
 this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-Place,Suite 330, Boston, MA  02111-1307, USA
+Place, Suite 330, Boston, MA  02111-1307, USA
 
 =head1 SEE ALSO
 

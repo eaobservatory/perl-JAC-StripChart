@@ -301,6 +301,13 @@ sub _colour_to_index {
   } elsif ($colour =~ /[a-z]/) {
     # Now examine other colours and convert known values to indices
     $colour = "grey" if ($colour eq "gray"); # For those who can't spell...
+    # Alternative colour substitution if PGPLOT values given
+    $colour = "blueviolet" if ($colour eq "purple");
+    $colour = "aquamarine" if ($colour eq "skyblue");
+    $colour = "brown" if ($colour eq "orange");
+    $colour = "turquoise" if ($colour eq "chartreuse");
+    $colour = "wheat" if ($colour eq "springgreen");
+
     for my $j (0..scalar(@knowncolours-1)) {
       if ($knowncolours[$j] eq $colour) {
 	$cindex = $j + 1;

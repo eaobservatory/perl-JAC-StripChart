@@ -234,7 +234,7 @@ sub read_config {
   # preload all the requested Sink classes
   for my $class (@sinks) {
     eval "use $class;";
-    JAC::StripChart::Error::BadConfig->throw("Attempt to use data sink  of class $class except that class could not be loaded: $@") if $@;
+    JAC::StripChart::Error::BadConfig->throw("Attempt to use data sink of class $class except that class could not be loaded: $@") if $@;
   }
 
 
@@ -264,7 +264,7 @@ sub read_config {
 
     # Read the sink options from the chart
     my %plotdefn;
-    for my $par ( qw| autoscale yscale growt window | ) {
+    for my $par ( qw| autoscale yscale growt window plottitle | ) {
       next unless exists $data{$chartid}->{$par};
       $plotdefn{$par} = $data{$chartid}->{$par};
 
@@ -275,9 +275,30 @@ sub read_config {
 
     # and associate the sinks with the chart
     my @snkobj = map { $_->new( %plotdefn ) } @sinks;
+#    print Dumper(@sinks);
     $charts[-1]->sinks( @snkobj );
-  }
 
+
+    # Repeat for chart attributes
+    my %attrdefn;
+    for my $par ( qw| symbol linestyle linecol symcol | ) {
+      next unless exists $data{$chartid}->{$par};
+      $attrdefn{$par} = $data{$chartid}->{$par};
+
+      # convert "," to array
+      $attrdefn{$par} = [ split(/,/, $attrdefn{$par}) ]
+	if $attrdefn{$par} =~ /,/;
+    }
+
+    my $attrs = new JAC::StripChart::Chart::Attrs(%attrdefn);
+    print Dumper($attrs);
+
+    # and associate the attributes with the chart
+#    my @attrobj = map { $_->new( %attrdefn ) } @charts;
+#    print Dumper(@attrobj);
+    $charts[-1]->monattrs( $attrs );
+    print Dumper(@charts);
+  }
 
   # Create  monitor objects
   my %monitors;

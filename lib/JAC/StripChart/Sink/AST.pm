@@ -479,8 +479,10 @@ sub putData {
 
   # Position offsets for plot legends
   my ($delta,$j) = (0.05,0);
-  my $x0 = 0.8;
-  my $y0 = 0.95;
+#  my $x0 = 0.8; # Original value
+#  my $y0 = 0.95; # Original value
+  my $x0 = 0.8; # Hack to deal with Tk vs PGPLOT concepts of 0->1
+  my $y0 = 0.88;
   my @keys = $self->monitor_ids;
   foreach my $mon (@keys) {
     my $plotattr = $self->attr($mon);

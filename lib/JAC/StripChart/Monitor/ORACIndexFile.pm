@@ -25,6 +25,9 @@ use Carp;
 use JAC::StripChart::Error;
 use File::Spec;
 
+# Need MJD conversion
+use Astro::SLA;
+
 # Need to be able to read index files
 use lib File::Spec->catdir($ENV{ORAC_DIR},"lib","perl5");
 use ORAC::Index::Extern;
@@ -128,6 +131,39 @@ sub index {
   return $self->{Index};
 }
 
+=item B<_monitor_posn>
+
+This (private) hash contains information on the data most recently
+obtained from the index file for each stripchart that is monitoring
+this index file.
+
+Valid keys are derived using the C<_genkey> method.
+
+  $i->_monitor_posn( $key, $newval );
+  $curval = $i->_monitor_posn( $key );
+  %allvals = $i->_monitor_posn();
+
+In the second example, 0 is returned rather than undef if no
+key is present.
+
+=cut
+
+sub _monitor_posn {
+  my $self = shift;
+  if (@_) {
+    my $key = shift;
+    if (@_) {
+      $self->{MonPos}->{$key} = shift;
+    } else {
+      my $curval = $self->{MonPos}->{$key};
+      return (defined $curval ? $curval : 0);
+    }
+  } else {
+    return %{ $self->{MonPos} };
+  }
+}
+
+
 =head1 General Methods
 
 =over 4
@@ -137,15 +173,65 @@ sub index {
 Retrieve the data that has arrived in the index file since the
 last time we were asked for data.
 
-  @newdata = $mon->getData( $id );
+  @newdata = $mon->getData( $id, $column, %filter );
 
 where ID is a unique identifier associated with a specific
 strip chart. e.g. "chart1", "chart2".
 
+@newdata contains a sorted list where each entry is a reference to a 2
+element array.
+
 =cut
 
 sub getData {
+  my $self = shift;
+  my $id = shift;
+  my $column = shift;
+  my %filter = @_;
 
+  # Generate the unique key
+  my $key = $self->_genkey( $id, $column, %filter);
+
+  # Get the reference time for this chart
+  my $reftime = $self->_monitor_posn( $key );
+
+  # Obtain the lines that match the filter
+  my @match = $self->index->scanindex(%filter);
+
+  # Make sure that column exists.
+  if (@match && !exists $match[0]->{$column}) {
+    warnings::warnif("Column name '$column' not recognized by index file");
+    return ();
+  }
+
+  # Now we have to filter on the basis of time. In this
+  # case ORACTIME (ie YYYYMMDD.frac) format.
+  @match = sort { $a->{ORACTIME} <=> $b->{ORACTIME} } 
+              grep { $_->{ORACTIME} > $reftime } @match;
+
+  # set reference time
+  $self->_monitor_posn( $key, $match[-1]->{ORACTIME})
+    if @match;
+
+  # return the answer (time should be in MJD UT)
+  return map { [ $self->_oractime_to_mjd($_->{ORACTIME}),
+		 $_->{$column}
+	       ] } @match;
+}
+
+=item B<_genkey>
+
+Generate a unique private key from the supplied chart configuration.
+
+  $key = $i->_genkey( $chartid, $column, %filter );
+
+The filter hash can be empty.
+
+=cut
+
+sub _genkey {
+  my $self = shift;
+  return join("_",@_);
 }
 
 =back
@@ -171,7 +257,32 @@ sub _abs_path {
   # decision!
   return File::Spec->rel2abs( $file, $ENV{ORAC_DATA_OUT});
 
+}
 
+=item B<_oractime_to_mjd>
+
+Convert ORACTIME (YYYYMMDD.frac)
+
+=cut
+
+sub _oractime_to_mjd {
+  my $class = shift;
+  my $oractime = shift;
+
+  Astro::SLA::slaCldj( substr($oractime,0,4),
+		       substr($oractime,4,2),
+		       substr($oractime,6,2),
+		       my $mjd, my $j
+		     );
+
+  warnings::warnif("Bad status in oractime_to_mjd from slaCldj: $j")
+    unless $j == 0;
+
+  # Add on the fraction of day
+  my $frac = $oractime - int($oractime);
+  $mjd += $frac;
+
+  return $mjd;
 }
 
 =back

@@ -55,6 +55,9 @@ Supported options are:
   context => Parent Tk frame in which to embed the canvas(es)
   nxy =>   Ref to array indicating the number of x and y subplots
 
+By default, the canvas is created with a black background in order to
+match the default PGPLOT and PLplot states.
+
 =cut
 
 sub new {
@@ -96,7 +99,7 @@ sub new {
   for my $i ( 1 .. $nx ) {
     for my $j ( 1 .. $ny ) {
       my $index = $dev->_ij_to_index( $i, $j );
-      $canv[ $index ] = $parent->Canvas( -background => 'white',
+      $canv[ $index ] = $parent->Canvas( -background => 'black',
 					 %cdims,
 				       )->grid( -column => ($i-1),
 						-row => ($j-1),

@@ -142,7 +142,7 @@ sub add_data {
     }
   }
 
-  @cleaned = grep { defined $_->[1] } @unclean;
+#  @cleaned = grep { defined $_->[1] } @unclean;
 
   # Sort data and return
   return sort $self->{DATA};
@@ -189,7 +189,7 @@ sub data {
   # Loop through data to find limits
   foreach my $i (0..$#alldata) {
 
-    if (%opts{outside}) {
+    if ($opts{outside}) {
       # Check if current time is just outside window
       push ( @data, $alldata[$i] ) 
 	if ( ($alldata[$i]->[0] <= $tmin) && ($alldata[$i+1]->[0] >= $tmin) );
@@ -200,10 +200,9 @@ sub data {
     # Add data within window
     push ( @data, $alldata[$i] ) 
       if ( ($alldata[$i]->[0] >= $tmin) && ($alldata[$i]->[0] <= $tmax) );
-    }
   }
   
-  if (%opts{xyarr}) {
+  if ($opts{xyarr}) {
     # If separate arrays wanted, split data into 2 arrays
     my (@tdata, @ydata);
     foreach my $i (0..$#data) {

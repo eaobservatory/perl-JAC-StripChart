@@ -335,6 +335,14 @@ sub putData {
   my $isold = 0;
   my $plt = $self->astPlot;
 
+  # Note that if the plot attributes have been modified we are forced
+  # to redraw the plot
+  if ($self->updated) {
+    undef $plt;
+    $self->updated( 0 );
+  }
+
+  # do we have a plot already?
   if (defined $plt) {
     $isold = 1;
 

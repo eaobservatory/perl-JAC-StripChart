@@ -176,71 +176,112 @@ sub putData {
   # Store new data in it
   $ts->add_data( @data );
 
+  # Relevance of prefix to min/max variables:
+  # ts = entire timeseries
+  # pl = plot bounds
+  # w  = Range of data within plot window
+
   # Calculate limits of entire timeseries
-  my ($xmin, $xmax, $ymin, $ymax) = $ts->bounds(1);
-
-  if ($xmin == $xmax) {
-    $xmax = 1.1*$xmin;
-  }
-  if ($ymin == $ymax) {
-    $ymin = 0.9*$ymin;
-    $ymax = 1.1*$ymax;
-  }
-
-  # In the code below, xmin/max refer to the PLOT bounds, while
-  # tmin/max refer to the limits of the time axis within the plot
-  # window defined by xmin/max. Clear? :)
+  my ($tsxmin, $tsxmax, $tsymin, $tsymax) = $ts->bounds(1);
+  # Plot limits - must take account of min/max of *all* ts on this plot
+  my ($plxmax, $plxmin, $plymax, $plymin);
+  # Limits for data within plot window
+  my ($wxmax, $wxmin, $wymax, $wymin);
+  # Define limits of plotting window
+  my ($winlo, $winhi); 
 
   # Retrieve window size from ini file
   my $window = $self->window;
   my $growt = $self->growt;
 
-  # Establish plot limits
-  # If no window defined, then set limits to entire range, regardless of growt
-  my ($tmin, $tmax);
+  # Establish plot limits using growt and window
+  # If no window defined, then set limits to entire range, regardless
+  # of growt
   unless ($window) {
-    $tmin = $xmin;
-    $tmax = $xmax;
+    # Check if ts x-limits are equal...
+    if ($tsxmin == $tsxmax) {
+      if ($tsxmin == 0) { # Catch value = 0 case
+	$plxmin = 0;
+	$plxmax = 1;
+      } else {
+	$plxmin = 0.9*$tsxmin;
+	$plxmax = 1.1*$tsxmax;
+      }
+    } else {
+      $plxmin = $tsxmin;
+      $plxmax = $tsxmax;
+    }
   } else {
+    # If a window has been set...
     # Convert $window to days from HOURS
     $window = $window / 24.0;
-    # If a window has been set...
     if ($growt) {
-      # ...and growt is true, then: check whether the window spans the
+      # If growt is true, then: check whether the window spans the
       # range of data points and set accordingly, scaling either from
       # the min or max.
-      my $xupper = $xmin + $window;
-      if ($xupper < $xmax) {
-	$tmin = $xmin;
-	$tmax = $xmax;
-      } else {
-	$tmin = $xmin;
-	$tmax = $tmin + $window;
+      my $xupper = $tsxmin + $window;
+      if ($xupper < $tsxmax) { # Data span more than window
+	$plxmin = $tsxmin;
+	$plxmax = $tsxmax;
+      } else { # Window greater than data range
+	$plxmin = $tsxmin;
+	$plxmax = $plxmin + $window;
       }
     } else {
       # Catch the case where the the range of data points is
       # smaller than the requested window so that the limits are
       # scaled relative to the min value rather than the max.
-      my $xupper = $xmin + $window;
-      if ($xupper > $xmax) {
-	$tmin = $xmin;
-	$tmax = $tmin + $window;
+      my $xupper = $tsxmin + $window;
+      if ($xupper > $tsxmax) {
+	$plxmin = $tsxmin;
+	$plxmax = $plxmin + $window;
       } else {
-	$tmax = $xmax;
-	$tmin = $tmax - $window;
+	$plxmax = $tsxmax;
+	$plxmin = $plxmax - $window;
       }
     }
   }
 
   # Store plotting window
-  $ts->window($tmin, $tmax); 
-  # Retrieve data limits within current window if there is more than 1 pt
-  ($xmin, $xmax, $ymin, $ymax) = $ts->bounds if ($#data >1);
+  $winlo = $plxmin;
+  $winhi = $plxmax;
+  $ts->window($winlo, $winhi); 
 
-  # Re-set plot limits to range of time values because the size of the
-  # window may cause the plot extend beyond the range of time values.
-  $xmin = $tmin;
-  $xmax = $tmax;
+  # Expand x-axis by 10% to allow chart to grow
+  my $dx = $plxmax - $plxmin;
+  $plxmax = $plxmax + 0.1*$dx;
+
+  # Retrieve data limits within current window
+  ($wxmin, $wxmax, $wymin, $wymax) = $ts->bounds;
+
+  # Set pl y-limits
+  # Catch case of zero points...
+  unless ( defined $wxmin ) {
+    $plxmin = 0;
+    $plxmax = 1;
+    $plymin = -1;
+    $plymax = 1;
+  } else {
+    # Calculate limits if autoscaling
+    if ($self->autoscale) {
+      if ($wymax == $wymin) {
+	if ($wymin == 0) { # Catch value = 0 case
+	  $plymin = -1;
+	  $plymax = 1;
+	} else {
+	  $plymax = 1.1*$wymax;
+	  $plymin = 0.9*$wymin;
+	}
+      } else {
+	my $dy = $wymax - $wymin;
+	$plymax = $wymax + 0.1*$dy; # Expand by 10% of range
+	$plymin = $wymin - 0.1*$dy;
+      }
+    } else {
+      # Set ymin/max from Yscale attribute
+      ($plymin,$plymax) = $self->yscale;
+    }
+  }
 
   # Select the correct subsection
   $self->device()->select;
@@ -248,9 +289,10 @@ sub putData {
   # Retrieve data within the plot window
   my ($xref, $yref);
   ($xref, $yref) = $ts->data(xyarr => 1, outside => 1);
-  # Immediately store number of data points
-  my $npts = (defined $xref ? scalar(@{$xref}) : 0);
-  
+  my $npts = $ts->npts;
+#  print $monid." ".$npts ." ".scalar(@{$xref})."\n";
+#  print Dumper($xref);
+
   # Now need to find out whether the data range for plotting
   # has changed. If it has we need to clear and recreate the
   # plot.
@@ -265,14 +307,22 @@ sub putData {
     my @plotbounds = $plt->PBox;
 
     # see if the data bounds are inside these bounds
-    if ( $xmin < $plotbounds[0] ||
-	 $xmax > $plotbounds[1] ||
-	 $ymin < $plotbounds[2] ||
-	 $ymax > $plotbounds[3] ) {
+    if ( $plxmin < $plotbounds[0] ||
+	 $plxmax > $plotbounds[1] ||
+	 $plymin < $plotbounds[2] ||
+	 $plymax > $plotbounds[3] ) {
       # Clear the plot
       $isold = 0;
       $self->device->clear();
       undef $plt;
+
+      # Determine which limits need to change - X probably always, but
+      # not always Y
+      if ($plymin > $plotbounds[2]) {
+	$plymin = $plotbounds[2]; # Leave ymin as is
+      } elsif ($plymax < $plotbounds[3]) {
+	$plymax = $plotbounds[3]; # Leave ymax as is
+      }
 
       # But make sure that we retrieve all the cache for replotting
       # from the specified x-range
@@ -282,27 +332,9 @@ sub putData {
 
   # Create the new AST plot object if we do not have one
   if (!defined $plt) {
-    # Check Y bounds of all monitors
-    # Set plot limits
-    if ($self->autoscale) {
-      if ($npts > 1) {
-	my $dy = $ymax - $ymin;
-	$ymin = $ymin - 0.1*$dy; # Expand by 10% of range above and below
-	$ymax = $ymax + 0.1*$dy;
-      } else {
-	$ymin = 0.9*$ymin; # Expand by 10% if only one datum is present
-	$ymax = 1.1*$ymax;
-      }
-    } elsif ($self->yscale) {
-      ($ymin,$ymax) = $self->yscale; # Set ymin/max from Yscale attribute
-    } 
-    # Expand t-axis by 10% of window
-    my $dx = $xmax - $xmin;
-    $xmax = $xmax + 0.1*$dx;
-
-    # Set plot attributes
+    
     $plt = new Starlink::AST::Plot( $self->astFrame(), [0,0,1,1],
-				    [$xmin,$ymin,$xmax,$ymax], 
+				    [$plxmin,$plymin,$plxmax,$plymax], 
 				    "size(title)=1.5,size(textlab)=1.3,size(numlab)=1.3,".
 				    "colour(title)=3,colour(textlab)=3,labelling=exterior,".
 				    "colour(border)=2,colour(numlab)=2,colour(ticks)=2");
@@ -327,36 +359,41 @@ sub putData {
 
 	# Retrieve plotting attributes
 	my $tsattr = $self->attr($mon);
-	my $tslcol = $self->_colour_to_index($tsattr->linecol);
-	my $tslstyle = $self->_style_to_index($tsattr->linestyle);
-	my $tsscol = $self->_colour_to_index($tsattr->symcol);
-	my $tssym = $self->_sym_to_index($tsattr->symbol);
 	# Replot data
-        $plt->Set("colour(markers)",$tsscol);
-        $plt->Mark($tssym, $xcache, $ycache) if ($ncachepts > 0);
-        $plt->Set("colour(curves)",$tslcol);
-        $plt->Set("style(curves)", $tslstyle);
-        $plt->PolyCurve($xcache, $ycache) if ($ncachepts > 1);
-      }
-    }
-  }
+	if ($ncachepts > 0) {
+	  my $tsscol = $self->_colour_to_index($tsattr->symcol);
+	  my $tssym = $self->_sym_to_index($tsattr->symbol);
+	  $plt->Set("colour(markers)",$tsscol);
+	  $plt->Mark($tssym, $xcache, $ycache);
+	  if ($ncachepts > 1) {
+	    my $tslcol = $self->_colour_to_index($tsattr->linecol);
+	    my $tslstyle = $self->_style_to_index($tsattr->linestyle);
+	    $plt->Set("colour(curves)",$tslcol);
+	    $plt->Set("style(curves)", $tslstyle);
+	    $plt->PolyCurve($xcache, $ycache);
+	  }
+	}
+      } # end unless
+    } # end foreach
+  } # end unless $isold 
 
 #  my $chan = new Starlink::AST::Channel( sink => sub { print "$_[0]\n"; } );
 #  $chan->Write( $plt );
 
-  # Plotting attributes
-  my $linecol = $self->_colour_to_index($attr->linecol);
-  my $linestyle = $self->_style_to_index($attr->linestyle);
-  my $symcol = $self->_colour_to_index($attr->symcol);
-  my $symbol = $self->_sym_to_index($attr->symbol);
-
-  # plot the data using the requested attributes
-  $plt->Set("colour(markers)",$symcol);
-  $plt->Mark($symbol, $xref, $yref) if ($npts > 0);
-  $plt->Set("colour(curves)", $linecol);
-  $plt->Set("style(curves)", $linestyle);
-  # Don't try and draw a curve if only 1 point
-  $plt->PolyCurve($xref, $yref) if ($npts > 1); 
+  # Plot the data using the requested attributes
+  if ($npts > 0) {
+    my $symcol = $self->_colour_to_index($attr->symcol);
+    my $symbol = $self->_sym_to_index($attr->symbol);
+    $plt->Set("colour(markers)",$symcol);
+    $plt->Mark($symbol, $xref, $yref);
+    if ($npts > 1) {
+      my $linecol = $self->_colour_to_index($attr->linecol);
+      my $linestyle = $self->_style_to_index($attr->linestyle);
+      $plt->Set("colour(curves)", $linecol);
+      $plt->Set("style(curves)", $linestyle);
+      $plt->PolyCurve($xref, $yref); 
+    }
+  }
 
   # return and wait for more data
   return;

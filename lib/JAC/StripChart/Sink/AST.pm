@@ -143,17 +143,18 @@ sub init {
 
   # Configure the timemap (we may want to make this choice
   # configurable so I'm writing this as if it is)
-  my $output = 'radians';  # days or radians or hours or unit
+#  my $output = 'hours';  # days or radians or hours or unit
+  my $tunits = $self->tunits;
 
   my $fr;
   my $shared = "title=StripChart,label(1)=Time,label(2)=Flux,unit(2)=Jy";
-  if ($output eq 'days' || $output eq 'unit') {
-    $self->timemap->output( $output );
+  if ($tunits eq 'days' || $tunits eq 'unit') {
+    $self->timemap->output( $tunits );
 
     # unit string depends on format but we know that refdate
     # will be set
     my $unit;
-    if ($output eq 'days' ) {
+    if ($tunits eq 'days' ) {
       $unit = 'frac UT day';
     } else {
       $unit = 'MJD';
@@ -162,16 +163,16 @@ sub init {
     # Create the plotting frame
     $fr = new Starlink::AST::Frame( 2, "$shared,unit(1)=$unit" );
 
-  } elsif ($output eq 'hours' ) {
+  } elsif ($tunits eq 'hours' ) {
 
-    $self->timemap->output( $output );
+    $self->timemap->output( $tunits );
 
     # Create the plotting frame
     $fr = new Starlink::AST::Frame( 2, "$shared,unit(1)=UT Hours" );
 
-  } elsif ($output eq 'radians' ) {
+  } elsif ($tunits eq 'radians' ) {
 
-    $self->timemap->output( $output );
+    $self->timemap->output( $tunits );
 
     # Now we get tricky since we want a slice of a SkyFrame
     # to render the hours minutes and seconds as if it was 
@@ -188,7 +189,7 @@ sub init {
     $fr = new Starlink::AST::CmpFrame( $ra, $yaxis, "$shared,unit(1)=UT Hours" );
 
   } else {
-    throw JAC::StripChart::Error::FatalError("Unknown output format for map: $output");
+    throw JAC::StripChart::Error::FatalError("Unknown output format for map: $tunits");
   }
 
   $self->astFrame( $fr );
@@ -427,9 +428,12 @@ sub putData {
 
     $plt->Grid();
 
-    # retrieve all other data from cache
+    # Retrieve all other data from cache - note use monitors from
+    # Cache as these are the data that havbe already been stored, as
+    # opposed to all the monitors that will be (and may not yet be)
+    # plotted.
     my %cache = $self->astCache;
-    foreach my $mon (keys %cache ) {
+    foreach my $mon ( keys %cache ) {
 
       unless ($mon eq $monid) {
         # Retrieve cached data

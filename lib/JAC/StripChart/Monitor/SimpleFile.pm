@@ -32,6 +32,7 @@ use Data::Dumper;
 
 use JAC::StripChart::Error;
 use File::Spec;
+use IO::File;
 
 # Need MJD conversion
 use Astro::SLA;
@@ -39,7 +40,7 @@ use Time::Piece;
 
 # Need to be able to read index files
 use lib File::Spec->catdir($ENV{ORAC_DIR},"lib","perl5");
-use JAC::StripChart::Simple::Access;
+#use JAC::StripChart::Simple::Access;
 
 use List::Util qw/ min /;
 
@@ -86,7 +87,9 @@ sub new {
   my $mon = bless {
 		   SimpleFile => undef,
 		   Index => undef,
-		   MonPos => {}
+		   MonPos => {},
+		   LastRead => undef,
+		   Ncols => undef,
 		  }, $class;
 
   # Store filename (triggering read)
@@ -116,10 +119,9 @@ sub indexfile {
   if (@_) {
     $self->{SimpleFile} = shift;
 
-    # Trigger read of index file itself
-    # Assume Simple data format looks like ORAC Index insofar as it
-    # contains space-separated columns of data. 
-    $self->index( new JAC::StripChart::Simple($self->{SimpleFile}) );
+    # Read file to get no of columns
+    $self->readfile;    
+#    $self->index( $self->{SimpleFile}) ;
   }
   return $self->{SimpleFile};
 }
@@ -136,8 +138,8 @@ sub index {
   if (@_) {
     # Check class
     my $obj = shift;
-    throw JAC::StripChart::Error::BadArgs("Supplied object to method 'index' must be of class 'JAC::StripChart::Simple' but was class '".ref($obj)."'")
-      unless UNIVERSAL::isa($obj, "JAC::StripChart::Simple");
+    throw JAC::StripChart::Error::BadArgs("Supplied object to method 'index' must be of class 'JAC::StripChart::Monitor' but was class '".ref($obj)."'")
+      unless UNIVERSAL::isa($obj, "JAC::StripChart::Monitor");
     $self->{Index} = $obj;
   }
   return $self->{Index};
@@ -181,12 +183,116 @@ sub _monitor_posn {
 
 =over 4
 
+=item B<readfile>
+
+Reads the index file, determines the number of columns and checks if
+the data in the file look like numbers.
+
+  $index->readfile; 
+
+Croaks if file does not exist or if the data do not look like numbers.
+
+=cut
+
+sub readfile {
+
+  my $self = shift;
+
+  # Update read time
+  $self->last_read(time());
+
+  # Look for index file
+  my $file = $self->indexfile;
+  return unless (-e $file);
+
+  my $handle = new IO::File "< $file";
+  my $ncols = undef;
+
+  if (defined $handle) {
+
+    foreach my $line (<$handle>) {
+      next if $line =~ /^\s*#/; # Ignore lines beginning with # or *
+      $line =~ s/^\s+//g;	# zap leading blanks
+      my @data = split(/\s+/,$line); # Split on spaces
+      $ncols = $#data + 1 if (!$ncols);  # Set the number of columns
+      last if $ncols; # Don't need to read any more once $ncols is set
+    }
+
+  } else {
+    croak("Couldn't open index file $file : $!");
+  }
+
+  $self->{Ncols} = $ncols;
+  return;
+
+}
+
+=item B<last_read>
+
+Time the index file was last read. This is used to determine whether
+the index file should be re-read.
+
+Relies on the object being based on a hash.
+
+=cut
+
+sub last_read {
+  my $self = shift;
+  if (@_) { $self->{LastRead} = shift; }
+  return $self->{LastRead};
+}
+
+=item B<readsimple>
+
+A method for returning the two columns of data of interest. Checks
+if the columns exist first.
+
+  @data = $self->readsimple( $tcol, $ycol, $id, $oldest);
+
+
+=cut
+
+sub readsimple {
+  my $self = shift;
+
+# Fail if less than 5 parameters are present
+  my $nparams = 5;
+  my $nfound = $#_ + 1;
+  throw JAC::StripChart::Error::BadArgs("Incorrect number of parameters supplied in call to readsimple (need $nparams, found $nfound)")
+    if ($nfound <=> $nparams);
+  my ($id, $tcol, $ycol, $tframe, $oldest) = @_;
+
+  # Check that $tcol and $ycol exist
+  warnings::warnif("Unable to plot data for $id because requested T column is not present in file")
+    if ($self->{Ncols} < $tcol);
+  warnings::warnif("Unable to plot data for $id because requested Y column is not present in file")
+    if ($self->{Ncols} < $ycol );
+
+  my $file = $self->indexfile;
+  my $handle = new IO::File "< $file";
+  my @plotdata;
+
+  # Read successive lines from file
+  while (my $line = <$handle>) {
+    next if $line =~ /^\#/; # Skip lines beginning with a #
+    $line =~ s/^\s+//g;     # Delete leading blanks
+    my @data = split(/\s+/,$line);
+    next if $data[$tcol-1] < $oldest;
+#    # Convert time data to ORACTIME
+#    my $tdata = convert_to_oractime($data[$tcol-1], $tframe);
+#    push (@plotdata, [ $tdata, $data[$ycol-1] ]);
+    push (@plotdata, [ $data[$tcol-1], $data[$ycol-1] ]);
+  }
+
+  return @plotdata;
+}
+
 =item B<getData>
 
 Retrieve the data that has arrived in the index file since the
 last time we were asked for data.
 
-  @newdata = $mon->getData( $id, $tcol, $ycol);
+  @newdata = $mon->getData( $id, $tcol, $ycol, $tframe);
 
 where ID is a unique identifier associated with a specific
 strip chart. e.g. "chart1", "chart2".
@@ -198,14 +304,17 @@ element array.
 
 sub getData {
   my $self = shift;
-  my $id = shift;
-  my $tcol = shift;
-  my $ycol = shift;
-  my $tframe = shift;
+
+# Fail if less than 4 parameters are present
+  my $nparams = 4;
+  my $nfound = $#_ + 1;
+  throw JAC::StripChart::Error::BadArgs("Incorrect number of parameters supplied in call to getData (need $nparams, found $nfound)")
+    if ($nfound <=> $nparams);
+  my ($id, $tcol, $ycol, $tframe) = @_;
 
   # Check for different columns!
   if ($tcol == $ycol) {
-    warnings::warnif("Unable to plot data for $id because t_col = y_col: both set to column = ".$tcol.")");
+    warnings::warnif("Unable to plot data for $id because t_col = y_col: both set to column $tcol");
       return;
     }
 
@@ -221,7 +330,7 @@ sub getData {
   }
 
   # Read new data and store in the @cache
-  my @cache = $self->index->scansimple($tcol, $ycol, $id, $oldest, $tframe);
+  my @cache = $self->readsimple($id, $tcol, $ycol, $tframe, $oldest);
 
   # Set the reference time to a new value
   $self->_monitor_posn( $key, $cache[-1]->[0])

@@ -390,7 +390,9 @@ sub putData {
     my ($mapped_plxmax) = $self->timemap->do_map( $plxmax );
 
     # create plot
-    $plt = new Starlink::AST::Plot( $self->astFrame(), [0,0,1,1],
+    my $border = 0.07;
+    $plt = new Starlink::AST::Plot( $self->astFrame(), 
+				    [$border,$border,1-$border,1-$border],
 				    [$mapped_plxmin,$plymin,
 				     $mapped_plxmax,$plymax], 
 				    "size(title)=1.5,size(textlab)=1.3,size(numlab)=1.3,".

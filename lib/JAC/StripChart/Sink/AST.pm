@@ -33,6 +33,7 @@ use Starlink::AST::PGPLOT;
 
 use base qw| JAC::StripChart::Sink |;
 use JAC::StripChart::Error;
+use JAC::StripChart::TimeSeries;
 
 use vars qw/ $VERSION /;
 $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
@@ -73,6 +74,46 @@ sub astPlot {
   return $self->{AST_Plot};
 }
 
+
+=item B<astCache>
+
+Cache of timeseries objects for each monitor in the sink
+
+  $snk->astCache( $monid, $ts); # Store timeseries object
+
+  $ts = $snk->astCache( $monid ); # Retrieve specified timeseries object
+
+  %cache = $snk->astCache; # Return hash of all stored timeseries objects
+
+Stores array of hashes which contain the timeseries objects indexed by
+monitor ID. A new C<JAC::StripChart::TimeSeries> object is created if
+one does not exist for the given monitor ID.
+
+=cut
+
+sub astCache {
+  my $self = shift;
+  if (@_) { 
+    my $monid = shift;
+    if (@_) {
+      # Store
+      my $ts = shift;
+      $self->{CACHE}->{$monid} = $ts;
+      return;
+    } else {
+      # Retrieve
+      if (exists $self->{CACHE}->{$monid}) {
+	return $self->{CACHE}->{$monid};
+      } else {
+	# Create new timeseries object to fill with data
+	$self->{CACHE}->{$monid} = new JAC::StripChart::TimeSeries( $monid );
+	return $self->{CACHE}->{$monid};
+      }
+    }
+  }
+  return %{ $self->{CACHE} }; # De-reference hash on return
+}
+
 =back
 
 =head2 General Methods
@@ -97,11 +138,11 @@ sub init {
   my $self = shift;
 
   # Create the AST plot and set the plotting attributes
-  my $fr = new Starlink::AST::Frame( 2, "title=Title,label(1)=time,unit(2)=MJD,label(2)=flux,unit(2)=Jy" );
+  my $fr = new Starlink::AST::Frame( 2, "title=Plot title,label(1)=Time,unit(1)=MJD,label(2)=Flux,unit(2)=Jy" );
 
   $self->astFrame( $fr );
 
-  # We can not set plot attributes here since we are in principal creating
+  # We can not set plot attributes here since we are in principle creating
   # a new plot each time the scale changes
 
 }
@@ -114,31 +155,42 @@ Plot the data on the registered device using AST as the plotting engine.
 
 =cut
 
-my %cache;
 sub putData {
   my $self = shift;
   my ($chartid, $monid, $attr, @data ) = @_;
 
-  # First need to store the new data in the cache indexed by monid
-  for my $elem (@data) {
-    $cache{$monid}{$elem->[0]} = $elem->[1];
+  # Retrieve or create new timeseries object
+  my $ts = $self->astCache( $monid );
+
+  # Store new data in it
+  $ts->add_data( @data );
+  # Calculate new limits of time series
+  my ($xmin, $xmax, $ymin, $ymax ) = $ts->bounds;
+
+  my ($tmin, $tmax);
+  # Retrieve window size
+  my $window = $self->window;
+  # Establish plot limits, window defined relative to most recent value
+  if ($window) {
+    $tmax = $xmax;
+    $tmin = $tmax - $window/24.0; # $window is in hours
+  } else { # Set to full range
+    $tmin = $xmin; # Earliest time
+    $tmax = $xmax; # Most recent time
   }
 
-  # then need to calculate statistics from the data for autoscaling
-  my @x = map { $_->[0] } @data;
-  my @y = map { $_->[1] } @data;
+  # Set the desired plotting window
+  $ts->window($tmin, $tmax);
 
-  my $xmax = max( @x );
-  my $xmin = min( @x );
-  my $ymax = max( @y );
-  my $ymin = min( @y );
-
-  # Now we need to window this range to make sure things are as specified
-  # We should do all calculations on the cache rather than on the
-  # current data
+  $xmin = $tmin if ($xmin < $tmin);
+  $xmax = $tmax;
 
   # Select the correct subsection
   $self->device()->select;
+
+  # Retrieve data within the plot window
+  my ($xref, $yref);
+  ($xref, $yref) = $ts->data(xyarr => 1, outside => 1);
 
   # Now need to find out whether the data range for plotting
   # has changed. If it has we need to clear and recreate the
@@ -150,13 +202,13 @@ sub putData {
     $isold = 1;
     # We have a plot but we are not sure whether the bounds are okay
     # Get the current plot bounds from the plot frame
-    my @bounds = $plt->PBox;
+    my @plotbounds = $plt->PBox;
 
     # see if the data bounds are inside these bounds
-    if ( $xmin < $bounds[0] ||
-	 $xmax > $bounds[1] ||
-	 $ymin < $bounds[2] ||
-	 $ymax > $bounds[3] ) {
+    if ( $xmin < $plotbounds[0] ||
+	 $xmax > $plotbounds[1] ||
+	 $ymin < $plotbounds[2] ||
+	 $ymax > $plotbounds[3] ) {
       # Clear the plot
       $isold = 0;
       $self->device->clear();
@@ -164,19 +216,22 @@ sub putData {
 
       # But make sure that we retrieve all the cache for replotting
       # from the specified x-range
-      # Currently extract all
-      @x = ();
-      @y = ();
-      # Really need to replot all cached data for this plot
-      for my $x ( sort { $a <=> $b } keys %{ $cache{$monid} } ) {
-	push(@x, $x);
-	push(@y, $cache{$monid}->{$x});
-      }
+      ($xref, $yref) = $ts->data(xyarr => 1, outside => 1);
     }
   }
 
   # Create the new AST plot object if we do not have one
   if (!defined $plt) {
+    # Adjust plot limits to look nice
+    if ($self->autoscale) {
+      my $dy = $ymax - $ymin;
+      $ymin = $ymin - 0.1*$dy;
+      $ymax = $ymax + 0.1*$dy;
+    } else {
+      ($ymin,$ymax) = $self->yscale;
+    }
+    my $dx = $xmax - $xmin;
+    $xmax = $xmax + 0.1*$dx;
     $plt = new Starlink::AST::Plot( $self->astFrame(), [0,0,1,1],
 				    [$xmin,$ymin,$xmax,$ymax], "" );
     $self->astPlot( $plt );
@@ -193,10 +248,10 @@ sub putData {
 #  $chan->Write( $plt );
 
   # plot the data using the requested attributes
-  $plt->PolyCurve(\@x, \@y);
+  $plt->PolyCurve($xref, $yref);
 
   # return and wait for more data
-
+  return;
 }
 
 =back

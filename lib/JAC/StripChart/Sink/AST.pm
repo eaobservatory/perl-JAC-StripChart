@@ -338,6 +338,7 @@ sub putData {
   # Note that if the plot attributes have been modified we are forced
   # to redraw the plot
   if ($self->updated) {
+    $self->device->clear();
     undef $plt;
     $self->updated( 0 );
   }
@@ -566,7 +567,7 @@ sub _grfselect {
 
 =head1 AUTHOR
 
-Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>and
+Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt> and
 Andy Gibb E<lt>agg@astro.ubc.caE<gt>
 
 

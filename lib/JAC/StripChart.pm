@@ -246,25 +246,48 @@ do the correct thing and forward on the event loop intialisation.
 
   $st->MainLoop();
 
-NOTE: There needs to be a way to exit this loop for the non-GUI case.
+Arguments indicate event loops that should be serviced regardless
+of the devices required for the stripchart.
+
+  $st->MainLoop( $event );
+
+The arguments must be JAC::StripChart::Event objects.
+
+NOTE: There needs to be a way to exit this loop for the non-GUI
+non-event loop case.
 
 =cut
 
 sub MainLoop {
   my $self = shift;
 
-  # First decide whether we require any non-standard event loop
+  # initial event classes
+  my @e = @_;
+
+  # assume that we only need one event class of each type
+  my %types = map { ref($_),undef } @e;
+
+  # Then decide whether we require any non-standard event loop
+  # from the charts themselves
   my @dev = $self->devices;
-  my @e;
+
   for my $d (@dev) {
     my $eclass = $d->event_class();
     next unless $eclass;
+
+    # skip if we have had this already
+    next if exists $types{$eclass};
+    $types{$eclass}++;
+
+    # load the required class
     eval "require $eclass";
     throw JAC::StripChart::Error::FatalError("Error loading support event handling class '$eclass': $@") if $@;
+
+    # create a new one and store it
     push(@e, $eclass->new( context => $d->context ));
   }
 
-  # 3 cases. No event classes, 1 event class or many
+  # 3 cases: No event classes, 1 event class or many
   if (!@e) {
     while (1) {
       $self->update;

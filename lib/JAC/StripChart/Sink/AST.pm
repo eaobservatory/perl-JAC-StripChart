@@ -108,33 +108,11 @@ sub astCache {
       } else {
 	# Create new timeseries object to fill with data
 	$self->{CACHE}->{$monid} = new JAC::StripChart::TimeSeries( $monid );
-	$self->monitors($monid);
 	return $self->{CACHE}->{$monid};
       }
     }
   }
   return %{ $self->{CACHE} }; # De-reference hash on return
-}
-
-=item B<monitors>
-
-Store/return the monitors for the current plot
-
-  $self->monitors( $monid );
-
-  @monitors = $self->monitors;
-
-=cut
-
-sub monitors {
-  my $self = shift;
-  if (@_) {
-    my $monid = shift;
-    push (@{ $self->{MONITORS} }, $monid);
-    return;
-  } else {
-    return @{ $self->{MONITORS} };
-  }
 }
 
 =back
@@ -435,7 +413,7 @@ sub putData {
   my ($delta,$j) = (0.05,0);
   my $x0 = 0.8;
   my $y0 = 0.95;
-  my @keys = $self->monitors;
+  my @keys = $self->_monitors();
   foreach my $mon (@keys) {
     my $plotattr = $self->attr($mon);
     # Plot legend...
@@ -497,6 +475,23 @@ sub putData {
 =head2 Private Methods
 
 =over 4
+
+=item B<_monitors>
+
+Return an array containing the monitors for the current plot
+
+  @monitors = $self->_monitors;
+
+=cut
+
+sub _monitors {
+  my $self = shift;
+  
+  my %attr = $self->attr;
+
+  return (keys %attr);
+
+}
 
 =item B<_default_dev_class>
 

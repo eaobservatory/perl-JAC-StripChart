@@ -45,10 +45,20 @@ sub canvas {
     my $arg = shift;
     use Data::Dumper;
     print Dumper([caller]);
-    throw JAC::StripChart::Error::FatalError( "Argument must be a Tk::Canvas object") unless UNIVERSAL::isa( $arg, "Tk::Canvas");
+    throw JAC::StripChart::Error::BadClass( "Argument must be a Tk::Canvas object") unless UNIVERSAL::isa( $arg, "Tk::Canvas");
     $self->{CANVAS} = $arg;
   }
   return $self->{CANVAS};
+}
+
+=item B<event_class>
+
+Event handling class for this device.
+
+=cut
+
+sub event_class {
+  return "JAC::StripChart::Event::Tk";
 }
 
 =head2 General Methods

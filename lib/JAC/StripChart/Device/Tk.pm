@@ -114,6 +114,16 @@ sub new {
 
 Reference to an array of canvas objects representing the subplots.
 
+=item B<event_class>
+
+Event handling class for this device.
+
+=cut
+
+sub event_class {
+  return "JAC::StripChart::Event::Tk";
+}
+
 =back
 
 =head2 General Methods

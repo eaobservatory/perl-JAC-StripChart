@@ -124,6 +124,17 @@ sub context {
   return $self->{CONTEXT};
 }
 
+=item B<event_class>
+
+Name of the relevant Event handling class that should be used with
+this device. Returns undef in the base class.
+
+=cut
+
+sub event_class {
+  return;
+}
+
 =back
 
 =head2 General Methods

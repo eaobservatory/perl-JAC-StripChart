@@ -238,19 +238,46 @@ sub update {
 =item B<MainLoop>
 
 This loop continuously requests each chart to update itself.
+If the devices require their own event loops, the method will
+do the correct thing and forward on the event loop intialisation.
 
-NOTE: There needs to be a way to exit this loop....
+  $st->MainLoop();
+
+NOTE: There needs to be a way to exit this loop for the non-GUI case.
 
 =cut
 
 sub MainLoop {
   my $self = shift;
 
-  while (1) {
-    $self->update;
-    sleep(1);
+  # First decide whether we require any non-standard event loop
+  my @dev = $self->devices;
+  my @e;
+  for my $d (@dev) {
+    my $eclass = $d->event_class();
+    next unless $eclass;
+    eval "require $eclass";
+    throw JAC::StripChart::Error::FatalError("Error loading support event handling class '$eclass': $@") if $@;
+    push(@e, $eclass->new( context => $d->context ));
   }
 
+  # 3 cases. No event classes, 1 event class or many
+  if (!@e) {
+    while (1) {
+      $self->update;
+      sleep(1);
+    }
+  } elsif (scalar(@e) == 1) {
+    $e[0]->configure_event( $self );
+    $e[0]->MainLoop();
+  } else {
+    $_->configure_event( $self ) for @e;;
+    while (1) {
+      $_->update() for @e;
+      sleep(1);
+    }
+  }
+  return;
 }
 
 =back

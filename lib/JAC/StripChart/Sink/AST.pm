@@ -709,9 +709,8 @@ sub _sym_to_index {
   }
   if ($symindex == -10) {
     warnings::warnif(" Unknown symbol, '$sym': setting to default (+)");
-    $symindex = 7;
+      $symindex = 2;
   }
-
   return $symindex;
 }
 

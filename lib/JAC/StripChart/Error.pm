@@ -198,6 +198,10 @@ Method was supplied with an object of the incorrect class.
 
 Configuration file was not correct.
 
+=item B<JAC::StripChart::Error::BadPlotDevice>
+
+There was an error creating a plot device.
+
 =item B<JAC::StripChart::Error::DirectoryNotFound>
 
 The requested directory could not be found.
@@ -246,6 +250,9 @@ package JAC::StripChart::Error::BadClass;
 use base qw/ JAC::StripChart::Error /;
 
 package JAC::StripChart::Error::BadConfig;
+use base qw/ JAC::StripChart::Error /;
+
+package JAC::StripChart::Error::BadPlotDevice;
 use base qw/ JAC::StripChart::Error /;
 
 package JAC::StripChart::Error::DirectoryNotFound;

@@ -38,17 +38,14 @@ use File::stat;
 use Astro::SLA;
 use Time::Piece;
 
-# Need to be able to read index files
-use lib File::Spec->catdir($ENV{ORAC_DIR},"lib","perl5");
-
 use List::Util qw/ min /;
 
 use vars qw/ $VERSION /;
 $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
 
 # Global hash look up table to keep track of which objects
-# have been associated with which index file. This is attempting
-# to cache repeat requests to access an index file.
+# have been associated with which files. This is attempting
+# to cache repeat requests to access the contents of a file.
 use vars qw/ %CACHE /;
 
 # Variable storing the oldest monitor position

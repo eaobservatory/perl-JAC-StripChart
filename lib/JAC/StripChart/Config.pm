@@ -233,11 +233,8 @@ sub read_config {
   }
 
 
-  # Attach monitors to underlying chart objects
-
-
   # Store charts
-  $self->charts( @charts );
+#  $self->charts( @charts );
 
 }
 
@@ -317,7 +314,7 @@ Place,Suite 330, Boston, MA  02111-1307, USA
 
 =head1 SEE ALSO
 
-L<SCUBA::ODF>, L<UKIRT::Sequence>
+L<JAC::StripChart>
 
 =cut
 

@@ -19,7 +19,6 @@ close($fh);
 $cfg->filename($cfgfile);
 is( $cfg->filename, $cfgfile, "Is filename set?");
 
-
 END { unlink $cfgfile }
 
 __DATA__
@@ -47,14 +46,14 @@ data=fcf850,fcf450
 
 [fcf450]
 monitor_class=ORACIndex
-indexfile=index.fcf
+indexfile=index.gains
 column=GAIN
 filter_UNITS=ARCSEC
 filter_FILTER=450W
 
 [fcf850]
 monitor_class=ORACIndex
-indexfile=index.fcf
+indexfile=index.gains
 column=GAIN
 filter_UNITS=ARCSEC
 filter_FILTER=850W

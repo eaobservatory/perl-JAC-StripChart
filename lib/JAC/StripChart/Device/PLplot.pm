@@ -29,7 +29,7 @@ use base qw/ JAC::StripChart::Device /;
 
 use Graphics::PLplot;
 
-use JAC::StripChart::Device::PLplot::Subplot;
+use JAC::StripChart::Device::Subplot::PLplot;
 use JAC::StripChart::Error;
 
 use vars qw/ $VERSION /;
@@ -86,7 +86,7 @@ be used for controlling device switching and subplot selection.
   $s = $dev->define_subplot( 2 );
 
 A subsection number is required. Returns objects of class
-C<JAC::StripChart::Device::PLplot::Subplot>.
+C<JAC::StripChart::Device::Subplot::PLplot>.
 
 =cut
 
@@ -94,7 +94,7 @@ sub define_subplot {
   my $self = shift;
   my $panl = shift;
   $panl = 0 unless defined $panl;
-  my $s = new JAC::StripChart::Device::PLplot::Subplot( $self, $panl );
+  my $s = new JAC::StripChart::Device::Subplot::PLplot( $self, $panl );
   return $s;
 }
 

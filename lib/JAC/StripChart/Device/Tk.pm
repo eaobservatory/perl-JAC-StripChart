@@ -30,7 +30,7 @@ use base qw/ JAC::StripChart::Device /;
 use Tk;
 use Tk::Canvas;
 
-use JAC::StripChart::Device::Tk::Subplot;
+use JAC::StripChart::Device::Subplot::Tk;
 use JAC::StripChart::Error;
 
 use vars qw/ $VERSION /;
@@ -151,7 +151,7 @@ be used for controlling device switching and subplot selection.
   $s = $dev->define_subplot( 2 );
 
 A subsection number is required. Returns objects of class
-C<JAC::StripChart::Device::Tk::Subplot>.
+C<JAC::StripChart::Device::Subplot::Tk>.
 
 =cut
 
@@ -159,7 +159,7 @@ sub define_subplot {
   my $self = shift;
   my $panl = shift;
   $panl = 0 unless defined $panl;
-  my $s = new JAC::StripChart::Device::Tk::Subplot( $self, $panl );
+  my $s = new JAC::StripChart::Device::Subplot::Tk( $self, $panl );
   return $s;
 }
 

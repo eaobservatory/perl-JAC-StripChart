@@ -413,7 +413,7 @@ sub putData {
   my ($delta,$j) = (0.05,0);
   my $x0 = 0.8;
   my $y0 = 0.95;
-  my @keys = $self->_monitors();
+  my @keys = $self->monitor_ids;
   foreach my $mon (@keys) {
     my $plotattr = $self->attr($mon);
     # Plot legend...
@@ -475,23 +475,6 @@ sub putData {
 =head2 Private Methods
 
 =over 4
-
-=item B<_monitors>
-
-Return an array containing the monitors for the current plot
-
-  @monitors = $self->_monitors;
-
-=cut
-
-sub _monitors {
-  my $self = shift;
-  
-  my %attr = $self->attr;
-
-  return (keys %attr);
-
-}
 
 =item B<_default_dev_class>
 

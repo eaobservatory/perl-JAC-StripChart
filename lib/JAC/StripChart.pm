@@ -58,6 +58,7 @@ sub new {
   my $st = bless {
 		   Config => undef,
 		   Charts => [],
+		   Devices => [],
 		  }, $class;
 
 
@@ -111,6 +112,24 @@ sub config {
   if (@_) { $self->{Config} = shift; }
   return $self->{Config};
 }
+
+=item B<devices>
+
+Returns all the devices required to render the charts.
+Can return an empty list if the C<init> method has not been instantiated.
+
+ @devs = $st->devices;
+
+=cut
+
+sub devices {
+  my $self = shift;
+  if (@_) {
+    @{$self->{Devices}} = @_;
+  }
+  return @{ $self->{Devices} };
+}
+
 
 =cut
 
@@ -166,6 +185,9 @@ sub init {
     # this is the top level control
     $dev{$d} = $class->new( %args );
   }
+
+  # store the devices
+  $self->devices( values %dev );
 
   # Now associate each chart with a device class configured
   # to its needs

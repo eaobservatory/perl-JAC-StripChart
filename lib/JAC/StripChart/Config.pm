@@ -251,6 +251,11 @@ sub read_config {
     # Store monitor details for later creation
     # And also store the relevant monitor names for this chart
     my @thischart;
+
+    # Check for data sources
+    throw JAC::StripChart::Error::BadConfig("No data source specified in config file")
+      unless exists $data{$chartid}->{data};
+
     for my $m ($self->_to_array($data{$chartid}->{data})) {
       push(@thischart,$m);
       $mkeys{$m}++;
@@ -271,7 +276,7 @@ sub read_config {
 
     # and associate the sinks with the chart
     my @snkobj = map { $_->new( %plotdefn ) } @sinks;
-#    print Dumper(@sinks);
+    print Dumper(@snkobj);
     $charts[-1]->sinks( @snkobj );
 
 #    print Dumper(@charts);
@@ -391,7 +396,7 @@ sub _genkey {
 
 =back
 
-=begin __PRIVATE_MMETHODS__
+=begin __PRIVATE_METHODS__
 
 =head2 Private Methods
 
@@ -495,12 +500,13 @@ are used by charts.
 
 =head1 AUTHOR
 
-Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
+Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt> and
+Andy Gibb E<lt>agg@astro.ubc.caE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council.
-All Rights Reserved.
+Copyright (C) 2004 Particle Physics and Astronomy Research Council and
+the University of British Columbia. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software

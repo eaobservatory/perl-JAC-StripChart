@@ -70,7 +70,7 @@ sub new {
     my %args = @_;
 
     # loop over known important methods
-    for my $k (qw| monid indexfile column filter|) {
+    for my $k (qw| monid indexfile column filter cvtsub|) {
       $mon->$k($args{$k}) if exists $args{$k};
     }
   }
@@ -182,12 +182,36 @@ sub filter {
 Name of the subroutine to be called to post-process data returned by the
 monitor before it is returned to the plot system.
 
+ $cfg->cvtsub( "cvt_to_something" );
+ $cfg->cvtsub( \&convert );
+
+Can be a code ref.
+
+Converted to a code ref on return.
+
 =cut
 
 sub cvtsub {
   my $self = shift;
   if (@_) {
-    $self->{CVTSUB} = shift;
+    my $sub = shift;
+    my $cvtref;
+    if (ref($sub) eq 'CODE') {
+      $cvtref = $sub;
+    } else {
+      my $pkg = 'JAC::StripChart::Monitor::ORACIndex::CVTSUB';
+      my $cvtsub = $pkg . "::$sub";
+      $cvtref = eval '\&'.$cvtsub;
+
+      # test it
+      eval '$cvtref->(0.5)';
+      if ($@) {
+	warnings::warnif("Undefined convert subroutine $sub. Ignoring it");
+	$cvtref = undef;
+      }
+    }
+    # store it
+    $self->{CVTSUB} = $cvtref;
   }
   return $self->{CVTSUB};
 }
@@ -218,20 +242,16 @@ sub getData {
   my $id = shift;
   my @data = $self->index->getData( $id, $self->column, $self->filter );
 
+  # return if no data
+  return () unless @data;
+
   # conversion
   my $cvtsub = $self->cvtsub;
   return @data unless $cvtsub;
 
-  # Prepend package name for security
-  $cvtsub = 'JAC::StripChart::Monitor::ORACIndex::CVTSUB' ."::$cvtsub";
-
-  # test it
-  my $val = eval "$cvtsub();";
-  return () if $@;
-
   # process the data
   for my $d (@data) {
-    my $val = eval "$cvtsub( ". $d->[1] ." );";
+    my $val = $cvtsub->( $d->[1] );
     $d->[1] = $val if defined $val;
   }
 

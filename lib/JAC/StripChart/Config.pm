@@ -241,7 +241,7 @@ sub read_config {
   # Read all the chart information
   my @charts; # Chart objects
   my %cmon;  # Chart monitor id lookup
-  my %mkeys;
+  my %mkeys; # Stores the number of times a particular monitor is used, keys are the monitor IDs
   for my $i (@index) {
 
     # Get the chart ID. We assume that the config identifier
@@ -278,27 +278,11 @@ sub read_config {
 #    print Dumper(@sinks);
     $charts[-1]->sinks( @snkobj );
 
-
-    # Repeat for chart attributes
-    my %attrdefn;
-    for my $par ( qw| symbol linestyle linecol symcol | ) {
-      next unless exists $data{$chartid}->{$par};
-      $attrdefn{$par} = $data{$chartid}->{$par};
-
-      # convert "," to array
-      $attrdefn{$par} = [ split(/,/, $attrdefn{$par}) ]
-	if $attrdefn{$par} =~ /,/;
-    }
-
-    my $attrs = new JAC::StripChart::Chart::Attrs(%attrdefn);
-    print Dumper($attrs);
-
-    # and associate the attributes with the chart
-#    my @attrobj = map { $_->new( %attrdefn ) } @charts;
-#    print Dumper(@attrobj);
-    $charts[-1]->monattrs( $attrs );
-    print Dumper(@charts);
+#    print Dumper(@charts);
   }
+
+  # Store charts
+  $self->charts( @charts );
 
   # Create  monitor objects
   my %monitors;
@@ -324,33 +308,90 @@ sub read_config {
     # some descriptive id
     $args{monid} = $m;
 
-    print Dumper(\%args);
+#    print Dumper(\%args);
 
     my $class = "JAC::StripChart::Monitor::$class_suffix";
     eval "use $class;";
     JAC::StripChart::Error::BadConfig->throw("Attempt to use monitor of class $class except that class could not be loaded: $@") if $@;
-
     $monitors{$m} = $class->new( %args );
-
 
   }
 
-  # Attach monitors to charts
+  # Attach monitors to charts and determine monitor attributes
+  # Loop over all charts, and then over all monitors for that chart
+  my %attrdefn;
+  my %attrargs;
   for my $cht (@charts) {
     my $c = $cht->chartid;
 
-    # now iterate over each monitor string, attaching it
+    # Now iterate over each monitor string, attaching it.  Note %cmon
+    # has already stored the monitor ids above (key = chartid, values
+    # = array of monids).
     my @mon = map { $monitors{$_} } @{ $cmon{$c} };
 
     # Attach to the chart object
     $cht->monitors( \@mon );
+
+    # Now for the attributes
+    for my $par ( qw| symbol linestyle linecol symcol | ) {
+      next unless exists $data{$c}->{$par};
+      $attrdefn{$par} = $data{$c}->{$par};
+      
+      # convert "," to array
+      $attrdefn{$par} = [ split(/,/, $attrdefn{$par}) ]
+	if $attrdefn{$par} =~ /,/;
+
+      # Deal with multiple monitors per chart
+      if (ref($attrdefn{$par}) eq 'ARRAY') {
+	my $nmons = scalar(@{$cmon{$c}});
+	# Loop over no of elements in attributes
+	for my $mons (1..$nmons) {
+	  my @newpair = ($par, @{$attrdefn{$par}}[$mons-1]) ;
+	  push( @{ $attrargs{ $self->_genkey($c, $cmon{$c}->[$mons-1])  } }, @newpair);
+	}
+      } else {
+	my @newpair = ($par, $attrdefn{$par}) ;
+	push( @{ $attrargs{ $self->_genkey($c, $cmon{$c}->[0]) } }, @newpair);
+      }
+    }
   }
 
-  # Store charts
-  $self->charts( @charts );
+  # Redefine the anon arrays as anon hashes to set up the attributes args
+  for my $attrkey (keys %attrargs) {
+    my %tmphash;
+    %tmphash = ( ref($attrargs{$attrkey}) eq 'ARRAY' ? @{ $attrargs{$attrkey} } : $attrargs{$attrkey});
+#      print Dumper(\%tmphash);
+    $attrargs{$attrkey} = \%tmphash;
+  }
+  print Dumper(%attrargs);
 
+#    %attrargs = %{ $attrs{$monid} };
+  foreach my $attrkey (keys %attrargs) {
+    # Generate attributes object
+    my $attrs = new JAC::StripChart::Chart::Attrs(%{ $attrargs{$attrkey} } );
+    # Attach to relevant monitor
+    
+    print Dumper ($attrs);
+  }
+    # and associate the attributes with the monitor
+#    my @attrobj = map { $_->new( %attrargs ) } @s;
+#    print Dumper(@attrobj);
+#      $...->monattrs( $attrs );
 }
 
+
+=item B<_genkey>
+
+Generate a unique private key from the supplied chart configuration.
+
+  $key = $i->_genkey( $chartid, $monid );
+
+=cut
+
+sub _genkey {
+  my $self = shift;
+  return join("_",@_);
+}
 
 =back
 

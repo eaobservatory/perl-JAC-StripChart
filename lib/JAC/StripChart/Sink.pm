@@ -65,6 +65,7 @@ sub new {
 		   Yunits => ' ',
 		   Window => 0,
 		   PlotTitle => ' ',
+		   Attr => ' ',
 		  }, $class;
 
   if (@_) {
@@ -221,6 +222,30 @@ sub yunits {
     $self->{Yunits} = $yunits;
   }
   return $self->{Yunits};
+}
+
+=item B<attr>
+
+Store a monitor attribute object with the time series
+
+  $ts->attr( $attr );
+
+Retrieve attribute
+
+  $attr = $ts->attr;
+
+=cut
+
+sub attr {
+  my $self = shift;
+
+  if (@_) {
+    my %attr = @_;
+    $self->{Attr} = \%attr;
+  } else {
+    return $self->{Attr};
+  }
+  return;
 }
 
 =back

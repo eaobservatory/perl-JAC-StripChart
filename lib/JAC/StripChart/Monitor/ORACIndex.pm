@@ -12,7 +12,7 @@ JAC::StripChart::Monitor::ORACIndex - Configure a stripchart ORAC-DR monitor
 
 =head1 DESCRIPTION
 
-
+This class is used for monitoring ORAC-DR index files.
 
 =cut
 
@@ -227,7 +227,7 @@ Place,Suite 330, Boston, MA  02111-1307, USA
 
 =head1 SEE ALSO
 
-L<JAC::StripChart>
+L<JAC::StripChart>, L<JAC::StripChart::Monitor::ORACIndexFile>.
 
 =cut
 

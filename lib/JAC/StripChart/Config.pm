@@ -10,7 +10,7 @@ JAC::StripChart::Config - Configure a stripchart
 
   $cfg = new JAC::StripChart::Config( $file );
 
-  @plots = $cfg->plots();
+  @charts = $cfg->charts();
 
 
 =head1 DESCRIPTION
@@ -27,6 +27,9 @@ use Carp;
 
 use JAC::StripChart::Error;
 use JAC::StripChart::Chart;
+use JAC::StripChart::Sink::AST::PGPLOT;
+use JAC::StripChart::Sink::AST::PLplot;
+use JAC::StripChart::Sink::PLplot;
 
 use Config::IniFiles;
 
@@ -168,6 +171,9 @@ sub read_config {
   # get the max index
   my $maxind = $index[-1];
 
+  throw JAC::StripChart::Error::BadConfig("No chart definition located")
+    unless defined $maxind;
+
   throw JAC::StripChart::Error::BadConfig("Possible error in config file. Attempt to plot more than 64 charts (requested $maxind)")
     if $maxind > 64;
 
@@ -215,10 +221,14 @@ sub read_config {
   my %mkeys;
   for my $i (@index) {
 
+    # Get the chart ID. We assume that the config identifier
+    # is the same as the chart class id
+    my $chartid = "$CHART_PREFIX$i";
+
     # Store monitor details for later creation
     # And also store the relevant monitor names for this chart
     my @thischart;
-    for my $m (split(/,/, $data{"$CHART_PREFIX$i"}->{data})) {
+    for my $m (split(/,/, $data{$chartid}->{data})) {
       push(@thischart,$m);
       $mkeys{$m}++;
     }
@@ -226,10 +236,24 @@ sub read_config {
     # Now need to create Chart objects
     # Do it here rather than after monitor object creation
     # in order to save a loop
-    my $chartid = "chart$i";
     push(@charts, new JAC::StripChart::Chart( chartid => $chartid));
     $cmon{$chartid} = \@thischart;
 
+    # Currently each chart has one data sink.
+    # We hardwire the class for this at the moment as a simplification
+    # In the future each chart could have a list of sink classes
+    my %plotdefn;
+    for my $par ( qw| autoscale yscale growt window | ) {
+      next unless exists $data{$chartid}->{$par};
+      $plotdefn{$par} = $data{$chartid}->{$par};
+
+      # convert "," to array
+      $plotdefn{$par} = [ split(/,/, $plotdefn{$par}) ]
+	if $plotdefn{$par} =~ /,/;
+    }
+    my $snk = new JAC::StripChart::Sink::PLplot( %plotdefn );
+#    my $snk = new JAC::StripChart::Sink::AST::PLplot( %plotdefn );
+    $charts[-1]->sinks( $snk );
   }
 
 
@@ -279,7 +303,6 @@ sub read_config {
     $cht->monitors( \@mon );
   }
 
-
   # Store charts
   $self->charts( @charts );
 
@@ -293,27 +316,45 @@ sub read_config {
 The file format for StripChart configuration is based on the INI
 file format.
 
-  [global]
+Global parameters for all plots can be set in the "globals" section.
+Currently only one plot driver can be used for all the stripcharts
+so the single plotting window must be segmented in some manner.
+
+
+  [globals]
   nx=10
   ny=2
+  plot_device=AST::PGPLOT
 
-  [plot1]
+Each chart is configured and data sources specified.
+
+  [chart1]
   yautoscale=1
-  yscale=[min,max]
   yunits=Jy
-  xscale=window|auto
-  xwindow=56 [minutes]
-  xminstart=-24
+  growt=1
+  window=3600
   data=fcf850,fcf850db,fcf450
 
-  [plot2]
+  [chart2]
   yautoscale=1
-  yscale=[min,max]
+  yscale=0,1.5
   yunits=Jy
-  xscale=window|auto
-  xwindow=56 [minutes]
-  xminstart=-24
+  growt=1
+  window=4800
   data=fcf850,fcf850db,fcf450
+
+Output devices can be configured independently: [not implemented]
+
+  [location1]
+  driver=PGPLOT
+  position=1
+
+  [location2]
+  driver=KST
+  position=2
+
+Data sources are specified in their own sections. The labels
+are used by charts.
 
   [fcf450]
   monitor_class=ORACIndex

@@ -186,17 +186,25 @@ sub read_config {
   my ($nx, $ny);
   if (exists $data{globals} &&
     ($data{globals}->{nx} || $data{globals}->{ny}) ) {
+    # read both values (even if one may be undefined)
     $nx = $data{globals}->{nx};
     $ny = $data{globals}->{ny};
 
-    if (!$nx) {
-      $nx = $maxind / $ny;
-      $nx = int($nx) + 1 if  int($nx) != $nx;
-    } elsif (!$ny) {
-      $ny = $maxind / $nx;
-      $ny = int($ny) + 1 if  int($ny) != $ny;
-    } else {
-      croak "This should not happen if previous test worked. Neither nx nor ny are true";
+    # do nothing more if both are true
+    unless ($nx && $ny) {
+      # at this point we know that either NX or NY is true
+      # but not both
+      if (!$nx) {
+	# no X so derive from Y
+	$nx = $maxind / $ny;
+	$nx = int($nx) + 1 if  int($nx) != $nx;
+      } elsif (!$ny) {
+	# no Y so derive from X
+	$ny = $maxind / $nx;
+	$ny = int($ny) + 1 if  int($ny) != $ny;
+      } else {
+	croak "This should not happen if previous test worked. Neither nx nor ny are false.";
+      }
     }
 
   } else {

@@ -250,10 +250,10 @@ sub data {
 
   # deal with "outside"
   if ($opts{outside}) {
-    $first-- if ($first > 0 && (defined $int->min && 
-				$alldata->[$first]->[0] != $int->min));
-    $last++  if ($last < $#$alldata && (defined $int->max &&
-					$alldata->[$last]->[0] != $int->max));
+    $first-- if ($first > 0 && (defined $min && 
+				$alldata->[$first]->[0] != $min));
+    $last++  if ($last < $#$alldata && (defined $max &&
+					$alldata->[$last]->[0] != $max));
   }
 
   # get the slice

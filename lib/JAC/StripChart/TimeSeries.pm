@@ -240,9 +240,7 @@ sub data {
   my $alldata = $self->alldata;
 
   # Requested interval
-  my $int = $self->window;
-  my ($min, $max);
-  ($min,$max) = $int->minmax() if defined $int;
+  my ($min,$max) = $self->window;
 
   # Find the index
   my $first = $self->_find_index( 'min', $alldata, $min );

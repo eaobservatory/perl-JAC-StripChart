@@ -2,17 +2,21 @@ package JAC::StripChart::Monitor::Simple;
 
 =head1 NAME
 
-JAC::StripChart::Monitor::Simple - Configure a stripchart ORAC-DR monitor
+JAC::StripChart::Monitor::Simple - Configure a stripchart monitor for a simple text file
 
 =head1 SYNOPSIS
 
   use JAC::StripChart::Monitor::Simple;
 
-  $cfg = new JAC::StripChart::Monitor::Simple( indexfile => $file );
+  $cfg = new JAC::StripChart::Monitor::Simple( filename => $file );
 
 =head1 DESCRIPTION
 
+Interface to a simple text file with space separated columns where
+time is represented by one of the columns and the time-varying data
+represented by another.
 
+Useful for testing stripchart functionality.
 
 =cut
 
@@ -36,12 +40,11 @@ $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
 
 =item B<new>
 
- $cfg = new JAC::StripChart::Monitor::Simple( indexfile => $file );
+ $cfg = new JAC::StripChart::Monitor::Simple( filename => $file );
 
 Takes a hash argument with keys:
 
-  indexfile => name of the ORAC-DR indexfile.
-               If no path, assumes $ORAC_DATA_OUT
+  filename => name of the file containing incoming data
 
   tcol => column number for time values
 
@@ -56,7 +59,7 @@ sub new {
   # Create object
   my $mon = bless {
 		   MonID => '',
-		   IndexObject => undef,
+		   FileObject => undef,
 		   TCol => undef,
 		   YCol => undef,
 		   Tformat => undef,
@@ -65,7 +68,7 @@ sub new {
   if (@_) {
     my %args = @_;
     # loop over known important methods
-    for my $k (qw| monid indexfile tcol ycol tformat|) {
+    for my $k (qw| monid filename tcol ycol tformat|) {
       $mon->$k($args{$k}) if exists $args{$k};
     }
   }
@@ -93,48 +96,46 @@ sub monid {
   return $self->{MonID};
 }
 
-=item B<indexfile>
+=item B<filename>
 
-Name of the ORAC-DR index file used as the data source for this
-monitor.
-
-Returns undef if no index file has yet been stored.
+Name of the file used as the data source for this monitor.
+Returns undef if no file has yet been registered.
 
 =cut
 
-sub indexfile {
+sub filename {
   my $self = shift;
   if (@_) {
     my $file = shift;
-    $self->index( new JAC::StripChart::Monitor::SimpleFile( $file ) )
+    $self->file( new JAC::StripChart::Monitor::SimpleFile( $file ) )
   }
-  return (defined $self->index ? $self->index->filename : undef);
+  return (defined $self->file ? $self->file->filename : undef);
 }
 
-=item B<index>
+=item B<file>
 
-The underlying Monitor::Simple object associated with this
+The underlying Monitor::SimpleFile object associated with this
 object.
 
 =cut
 
-sub index {
+sub file {
   my $self = shift;
   if (@_) {
     # Check class
     my $obj = shift;
 # TO BE ADDED LATER... ASSUME IT'S VALID FOR NOW
-    throw JAC::StripChart::Error::BadArgs("Supplied object to method 'index' must be of class 'JAC::StripChart::Monitor::SimpleFile' but was class '".ref($obj)."'")
+    throw JAC::StripChart::Error::BadArgs("Supplied object to method 'file' must be of class 'JAC::StripChart::Monitor::SimpleFile' but was class '".ref($obj)."'")
       unless UNIVERSAL::isa($obj, "JAC::StripChart::Monitor::SimpleFile");
-    $self->{IndexObject} = $obj;
+    $self->{FileObject} = $obj;
 
   }
-  return $self->{IndexObject};
+  return $self->{FileObject};
 }
 
-=item B<tcol> and B<ycol>
+=item B<tcol>
 
-The columns containing the data to be plotted (time must be one of them)
+The column number representing the time axis.
 
 =cut
 
@@ -145,6 +146,12 @@ sub tcol {
   }
   return $self->{Tcol};
 }
+
+=item B<ycol>
+
+The column number representing the Y-axis data.
+
+=cut
 
 sub ycol {
   my $self = shift;
@@ -157,6 +164,7 @@ sub ycol {
 =item B<tformat>
 
 Set the Time format. Checks whether $tformat is a known format.
+
 
 =cut
 
@@ -183,7 +191,7 @@ sub tformat {
 
 =item B<getData>
 
-Retrieve the data that has arrived in the index file since the
+Retrieve the data that has arrived in the file since the
 last time we were asked for data.
 
   @newdata = $mon->getData( $id );
@@ -199,7 +207,7 @@ element array. First element is the time in MJD.
 sub getData {
   my $self = shift;
   my $id = shift;
-  return $self->index->getData( $id, $self->tcol, $self->ycol,  $self->tformat );
+  return $self->file->getData( $id, $self->tcol, $self->ycol,  $self->tformat );
 }
 
 =back

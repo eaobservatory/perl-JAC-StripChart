@@ -501,7 +501,11 @@ sub _convert_to_mjd {
     warnings::warnif("Bad status in convert_to_mjd from slaCldj: $j")
       unless $j == 0;
     # Calculate day fraction unless already calculated above
-    $frac = ($hour + $minute/60.0 + $seconds/3600.0)/24.0 unless defined ($frac);
+    Astro::SLA::slaDtf2d( $hour, $minute, $seconds, $frac, $j)
+      unless defined $frac;
+    warnings::warnif("Bad status in convert_to_mjd from slaDtf2d: $j")
+      unless $j == 0;
+
     $mjd += $frac;
   }
 

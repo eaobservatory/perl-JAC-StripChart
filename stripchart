@@ -76,4 +76,37 @@ my $st = new JAC::StripChart( $cfgfile );
 
 $st->init;
 
-$st->MainLoop;
+
+# Need to know whether to start a Tk event loop
+my @devs = $st->devices();
+if (grep { ref($_) =~ /::Tk/ } @devs) {
+  # there will be a MainWindow created automatically
+  # but we still need it
+  my $ctxt;
+  for my $d (@devs) {
+    $ctxt = $d->context;
+    if (defined $ctxt && $ctxt->isa( "Tk::Frame" )) {
+      last;
+    }
+  }
+
+  # set up the update loop
+  &tkrepeat( $ctxt );
+  Tk::MainLoop();
+} else {
+  $st->MainLoop;
+}
+
+
+
+exit;
+
+sub tkrepeat {
+  my $context = shift;
+  $context->after( 1000,
+		   sub { $st->update();
+			 print "Updating...\n";
+			 $context->after(1000, [\&tkrepeat, $context]);
+		       }
+		 );
+}

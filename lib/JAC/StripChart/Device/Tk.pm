@@ -97,7 +97,7 @@ sub new {
   }
 
   # pack it into the "context"
-  $parent->pack( -expand => 1);
+  $parent->pack( -expand => 1, -fill => 'both');
 
   # store the canvas objects
   $dev->devid( \@canv );

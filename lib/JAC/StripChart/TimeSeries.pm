@@ -73,7 +73,8 @@ sub new {
   my $ts = bless {
 		  ID => $id,
 		  DATA => [], # use array of arrays for now
-		  WINDOW => undef, # Number::Interval
+		  WINDOW => undef, # Number::Interval object
+		  NPTS => 0, # Number of data points within current WINDOW
 		 }, $class;
 
   return $ts;
@@ -120,7 +121,7 @@ sub add_data {
   # We want to remove duplicates. The easiest way to do this is
   # to use a hash (although not the most memory efficient for a
   # large time series).
-
+  use Data::Dumper;
   # hash the existing data with the new data
   my %data = map { $_->[0] => $_ } @{ $self->{DATA} }, @_;
 
@@ -306,6 +307,26 @@ sub bounds {
   my $ymax = max( @ydata );
 
   return ( $tmin, $tmax, $ymin, $ymax );
+}
+
+=item B<npts>
+
+Store the number of data points which lie within the bounds of the
+current window.
+
+  $npts = $ts->npts;
+
+=cut
+
+sub npts {
+  my $self = shift;
+
+  my ($xdata, $ydata) = $self->data(xyarr => 1, outside => 1);
+  my $npts = ( defined $xdata ? scalar( @{ $xdata } ) : 0 );
+
+  $self->{NPTS} = $npts;
+  return $self->{NPTS};
+
 }
 
 =head1 AUTHOR

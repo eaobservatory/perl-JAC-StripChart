@@ -354,7 +354,8 @@ sub getData {
   my $reftime = $self->_convert_to_mjd( $self->_monitor_posn( $key ), $self->tformat );
 #  print $reftime ." ". $self->last_write($self->filename) ."\n";
 
-  return if ($self->last_read > $self->last_write($self->filename) && $reftime > $self->last_write($self->filename));
+#  return if ($self->last_read > $self->last_write($self->filename) && $reftime > $self->last_write($self->filename));
+  return if ($self->last_read > $self->last_write($self->filename));
 
   # Read new data and store in @newdata
   my @newdata = $self->readsimple( $key );
@@ -417,7 +418,8 @@ sub readsimple {
     # Convert time data to MJD
     my $tdata = $self->_convert_to_mjd($data[$tcol-1], $tformat);
     # Note the use of < rather than <= guarantees return of at least 1 data pair for refreshing the display
-    next if $tdata < $self->_convert_to_mjd($oldest, $tformat);
+    # No longer needed...
+    next if $tdata <= $self->_convert_to_mjd($oldest, $tformat);
 #    print $tdata."   ".$oldest."\n";
     push (@plotdata, [ $tdata, $data[$ycol-1] ]);
 # Set monitor position to last line in file

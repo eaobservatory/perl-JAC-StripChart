@@ -75,6 +75,7 @@ sub new {
 		  DATA => [], # use array of arrays for now
 		  WINDOW => undef, # Number::Interval object
 		  NPTS => 0, # Number of data points within current WINDOW
+		  LASTDATA => [undef, undef],
 		 }, $class;
 
   return $ts;
@@ -121,7 +122,7 @@ sub add_data {
   # We want to remove duplicates. The easiest way to do this is
   # to use a hash (although not the most memory efficient for a
   # large time series).
-  use Data::Dumper;
+
   # hash the existing data with the new data
   my %data = map { $_->[0] => $_ } @{ $self->{DATA} }, @_;
 
@@ -131,7 +132,6 @@ sub add_data {
   # and recreate the sorted list whilst removing undefs
   @{ $self->{DATA} } = grep { defined $_->[1] }
                           map { $data{$_} } @sortkeys;
-
   return;
 }
 
@@ -358,6 +358,36 @@ sub npts {
   $self->{NPTS} = $npts;
   return $self->{NPTS};
 
+}
+
+=item B<lastdata>
+
+Store the last data pair plotted as a reference to a (x,y)
+pair. (KLUDGE: Actually just stores whatever is passed to it...!)
+
+  $ts->lastdata( $lastdata );
+
+Retrieve last data pair, a reference to a pair of values.
+
+  $lastdata = $ts->lastdata;
+
+=cut
+
+sub lastdata {
+  my $self = shift;
+
+  if (@_) {
+    # Check if we're being passed a ref to an array...
+    my $lastdata = shift;
+    if ( ref($lastdata) eq "ARRAY" ) {
+      $self->{LASTDATA} = $lastdata;
+    } else {
+      croak("Error: lastdata argument not a reference to an array");
+    }
+    return;
+  } else {
+    return $self->{LASTDATA};
+  }
 }
 
 =head1 AUTHOR

@@ -63,7 +63,7 @@ sub new {
 		   AutoScale => 1,
 		   Yscale => [0,1],
 		   Yunits => ' ',
-		   Window => 3600,
+		   Window => 0,
 		   PlotTitle => ' ',
 		  }, $class;
 
@@ -147,7 +147,7 @@ sub growt {
 
 =item B<window>
 
-Size of the moving window for the strip chart, in seconds. Only used
+Size of the moving window for the strip chart, in hours. Only used
 if C<growt> is false.
 
 =cut

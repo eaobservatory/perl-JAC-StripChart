@@ -26,6 +26,7 @@ use strict;
 use warnings;
 use warnings::register;
 use Carp;
+use Time::Piece;
 
 use List::Util qw/ min max /;
 use Starlink::AST;
@@ -138,7 +139,7 @@ sub init {
   my $self = shift;
 
   # Create the AST plot and set the plotting attributes
-  my $fr = new Starlink::AST::Frame( 2, "title=Plot title,label(1)=Time,unit(1)=MJD,label(2)=Flux,unit(2)=Jy" );
+  my $fr = new Starlink::AST::Frame( 2, "title=Stripchart,label(1)=Time,unit(1)=MJD,label(2)=Flux,unit(2)=Jy" );
 
   $self->astFrame( $fr );
 
@@ -164,6 +165,15 @@ sub putData {
 
   # Store new data in it
   $ts->add_data( @data );
+
+  # Setting the plot limits is a 2-step process.
+  # First time this is called, the bounds are set to the entire
+  # timeseries. Then calculate the plot min & max from these values.
+  # Next, set the desired plot window and re-calculate the the bounds
+  # of the data within the window so that xmin is set to the oldest
+  # time *within the window*.
+  # On subsequent calls, 
+
   # Calculate new limits of time series
   my ($xmin, $xmax, $ymin, $ymax ) = $ts->bounds;
 
@@ -181,8 +191,14 @@ sub putData {
 
   # Set the desired plotting window
   $ts->window($tmin, $tmax);
+  # Re-calculate bounds using the new plot window
+  ($xmin, $xmax, $ymin, $ymax ) = $ts->bounds;
 
-  $xmin = $tmin if ($xmin < $tmin);
+  # Set min/max accordingly.
+  # Set xmin to the oldest time in the data set if xmin is calculated
+  # to be further in the past than tmin. This avoids largely empty plots
+  # when a stripchart has just been started.
+  $xmin = $tmin if ($xmin < $tmin); 
   $xmax = $tmax;
 
   # Select the correct subsection
@@ -243,9 +259,8 @@ sub putData {
     $plt = new Starlink::AST::Plot( $self->astFrame(), [0,0,1,1],
 				    [$xmin,$ymin,$xmax,$ymax], 
 				    "size(title)=1.5,size(textlab)=1.3,size(numlab)=1.3,".
-				    "colour(title)=3,colour(textlab)=3,colour(curves)=$linecol,".
-				    "colour(border)=2,colour(numlab)=2,colour(ticks)=2,".
-				    "style(curves)=$linestyle" );
+				    "colour(title)=3,colour(textlab)=3,".
+				    "colour(border)=2,colour(numlab)=2,colour(ticks)=2");
     $self->astPlot( $plt );
   }
 
@@ -254,13 +269,33 @@ sub putData {
   $self->_grfselect( $plt );
 
   # draw the plot axes if we have changed the plot bounds
-  $plt->Grid() unless $isold;
+  unless ($isold) {
+    $plt->Grid();
+    # retrieve all other data from cache
+    my %cache = $self->astCache;
+    foreach my $mon (keys %cache ) {
+      unless ($mon eq $monid) {
+	# Retrieve cached data
+	my $tscache = $self->astCache( $mon );
+	my ($newxref, $newyref) = $tscache->data(xyarr => 1, outside => 1);
+	$plt->Set("colour(curves)","2");
+	$plt->Set("style(curves)", "1");
+	$plt->PolyCurve($newxref, $newyref);	
+	$plt->Set("colour(markers)","4");
+	$plt->Mark($symbol, $newxref, $newyref);
+      }
+    }
+  }
 
 #  my $chan = new Starlink::AST::Channel( sink => sub { print "$_[0]\n"; } );
 #  $chan->Write( $plt );
 
   # plot the data using the requested attributes
+  $plt->Set("colour(curves)", $linecol);
+  $plt->Set("style(curves)", $linestyle);
   $plt->PolyCurve($xref, $yref);
+  $plt->Set("colour(markers)",$symcol);
+  $plt->Mark($symbol, $xref, $yref);
 
   # return and wait for more data
   return;
@@ -295,132 +330,6 @@ sub _grfselect {
   return;
 }
 
-=item B<_colour_to_index>
-
-Translate given colour to PGPLOT colour index
-
-  $self->_colour_to_index( $colour );
-
-=cut
-
-sub _colour_to_index {
-  my $self = shift;
-  my $colour = shift;
-  my $cindex = -1;
-
-  # Note the order of @knowncolours is set to match the PGPLOT index number
-  my @knowncolours = qw( white red green blue cyan magenta yellow orange chartreuse springgreen skyblue purple pink darkgrey grey);
-
-  # Colour index given
-  if ($colour =~ /\d/) {
-    throw JAC::StripChart::Error::BadConfig("Colour index does not exist - must lie between 1 and 15") if ($colour > 15 || $colour < 1);
-    $cindex = $colour;
-  } elsif ($colour =~ /[a-z]/) {
-    # Convert to lower case
-    my $lcolour = lc($colour);
-    # Now examine other colours and convert known values to indices
-    $lcolour = "grey" if ($lcolour eq "gray"); # For those who can't spell...
-    $lcolour = "grey" if ($lcolour eq "lightgrey"); 
-    for my $j (0..scalar(@knowncolours-1)) {
-      if ($knowncolours[$j] eq $lcolour) {
-	$cindex = $j + 1;
-	last;
-      } 
-    }
-  } else {
-    throw JAC::StripChart::Error::BadConfig("Invalid string for colour");
-  }
-  # Warn if $cindex not set, and set to default colour
-  # FUTURE: use this to establish new colour table
-  if ($cindex == -1) {
-    warnings::warnif(" Unknown colour, '$colour': setting to default value (yellow)");
-    $cindex = 7;
-  }
-  return $cindex;
-}
-
-=item B<_style_to_index>
-
-Translate given line style to PGPLOT line style index
-
-  $self->_style_to_index( $style );
-
-PGPLOT supports only 5 linestyles
-
-=cut
-
-sub _style_to_index {
-  my $self = shift;
-  my $style = shift;
-  my $stindex = 4;
-
-  if ($style eq "solid") {
-    $stindex = 1;
-  } elsif ($style eq "dot" || $style eq "dotted") {
-    $stindex = 4;
-  } elsif ($style eq "dash-dot" || $style eq "ddash" || $style eq "dot-dash" ) {
-    $stindex = 3;
-  } elsif ($style eq "longdash" || $style eq "ldash" || $style eq "dash" || $style eq "dashed" )  {
-    $stindex = 2;
-  } elsif ($style eq "dash-dot-dot" || $style eq "dddash") {
-    $stindex = 5;
-  } else {
-    print " Unknown LineStyle - setting style to solid \n";
-    $stindex = 1;
-  }
-  
-  return $stindex;
-}
-
-=item B<_sym_to_index>
-
-Translate given plot symbol to PGPLOT symbol index
-
-  $self->_sym_to_index( $style );
-
-For now, only support basic symbols (circle, square etc). If symbol
-index is given directly, then check for valid value and set it to the
-given or default value.
-
-=cut
-
-sub _sym_to_index {
-  my $self = shift;
-  my $sym = shift;
-  my $symindex = -10;
-
-  # Prefix with `f' to get filled versions
-  my %knownsymbols = ( square => 0,
-		       dot => 1,
-		       plus => 2,
-		       asterisk => 3,
-		       circle => 4,
-		       cross => 5,
-		       triangle => 7,
-		       diamond => 11,
-		       star => 12,
-		       fcircle => 17,
-		       fsquare => 16,
-		       ftriangle => 13,
-		       fstar => 18,
-		       fdiamond => -4);
-
-  if ($sym =~ /\d/) {
-    throw JAC::StripChart::Error::BadConfig("Symbol index not defined - must lie between -4 and 31") 
-      if ($sym > 31 || $sym < -4);
-    $symindex = $sym;
-  } elsif ($sym =~ /[a-z]/) {
-    foreach my $symkey (keys %knownsymbols) {
-      $symindex = $knownsymbols{$symkey} if ($symkey eq $sym);
-    }
-  }
-  if ($symindex == -10) {
-    warnings::warnif(" Unknown symbol, '$sym': setting to default (+)");
-    $symindex = 7;
-  }
-
-  return $symindex;
-}
 
 =back
 

@@ -101,7 +101,7 @@ sub panel {
 
 =item B<select>
 
-Select the specified panel.
+Select the specified panel. Does not erase it.
 
 =cut
 
@@ -125,9 +125,6 @@ sub select {
 
   # Select the panel
   pgpanl( $x, $y );
-
-  # Erase the panl
-  pgeras();
 
   return;
 }

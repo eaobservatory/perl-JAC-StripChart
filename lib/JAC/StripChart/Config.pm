@@ -225,7 +225,7 @@ sub read_config {
   my @sinks;
   my $snk_root = "JAC::StripChart::Sink";
   if (exists $data{globals} && $data{globals}->{output_class}) {
-    my @classes = split(/,/, $data{globals}->{output_class} );
+    my @classes = $self->_to_array($data{globals}->{output_class});
     @sinks = map { $snk_root . "::" . $_ } @classes;
   } else {
     push(@sinks, $snk_root );
@@ -251,7 +251,7 @@ sub read_config {
     # Store monitor details for later creation
     # And also store the relevant monitor names for this chart
     my @thischart;
-    for my $m (split(/,/, $data{$chartid}->{data})) {
+    for my $m ($self->_to_array($data{$chartid}->{data})) {
       push(@thischart,$m);
       $mkeys{$m}++;
     }
@@ -266,11 +266,7 @@ sub read_config {
     my %plotdefn;
     for my $par ( qw| autoscale yscale growt window plottitle | ) {
       next unless exists $data{$chartid}->{$par};
-      $plotdefn{$par} = $data{$chartid}->{$par};
-
-      # convert "," to array
-      $plotdefn{$par} = [ split(/,/, $plotdefn{$par}) ]
-	if $plotdefn{$par} =~ /,/;
+      $plotdefn{$par} = $self->_to_array($data{$chartid}->{$par});
     }
 
     # and associate the sinks with the chart
@@ -297,11 +293,15 @@ sub read_config {
     my %args;
     for my $k (keys %{$data{$m}}) {
       next if $k eq 'monitor_class';
-      if ($k =~ /^(\w+)_(\w+)$/) {
+      my $value = $data{$m}->{$k};
+      $value =~ s/\s+$//; # clean
+      if ($k =~ /_/) {
 	# This is a special filter option
-	$args{$1}->{$2} = $data{$m}->{$k};
+	# use split in case option has multiple underscores
+	my ($type, $variant) = split(/_/, $k,2);
+	$args{$type}->{$variant} = $value;
       } else {
-	$args{$k} = $data{$m}->{$k};
+	$args{$k} = $value;
       }
     }
 
@@ -335,11 +335,7 @@ sub read_config {
     # Now for the attributes
     for my $par ( qw| symbol linestyle linecol symcol | ) {
       next unless exists $data{$c}->{$par};
-      $attrdefn{$par} = $data{$c}->{$par};
-      
-      # convert "," to array
-      $attrdefn{$par} = [ split(/,/, $attrdefn{$par}) ]
-	if $attrdefn{$par} =~ /,/;
+      $attrdefn{$par} = $self->_to_array($data{$c}->{$par});
 
       # Deal with multiple monitors per chart
       if (ref($attrdefn{$par}) eq 'ARRAY') {
@@ -365,7 +361,7 @@ sub read_config {
     # Generate attributes object
     my $attrs = new JAC::StripChart::Chart::Attrs(%{ $attrargs{$attrkey} } );
     # Retrieve monitor ID from $attrkey = second (& final) element in array
-    my ($chartid, $monidkey) = split(/_/,$attrkey);
+    my ($chartid, $monidkey) = split(/_/,$attrkey,2);
 
     # Attach to relevant monitor
     for my $chart (@charts) {
@@ -394,6 +390,51 @@ sub _genkey {
 }
 
 =back
+
+=begin __PRIVATE_MMETHODS__
+
+=head2 Private Methods
+
+=over 4
+
+=item B<_to_array>
+
+Convert a line in a config array to a list.
+
+  @contents = $cfg->_to_array( $string );
+
+In scalar context returns the single scalar value if no other
+values are determined, else a reference to an array.
+
+=cut
+
+sub _to_array {
+  my $self = shift;
+  my $str = shift;
+  return () unless defined $str;
+
+  my @vals;
+  if (ref($str)) {
+    @vals = @$str;
+  } else {
+    @vals = split(/,/, $str);
+  }
+
+  if (wantarray) {
+    return @vals;
+  } else {
+    if (@vals == 1) {
+      return $vals[0];
+    } else {
+      return \@vals;
+    }
+  }
+}
+
+
+=back
+
+=end __PRIVATE_METHODS__
 
 =head1 FORMAT
 

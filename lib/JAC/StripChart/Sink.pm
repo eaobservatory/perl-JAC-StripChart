@@ -390,11 +390,21 @@ forwards the data to STDOUT.
 
   $snk->putData( $chartid, $monid, $attrs, @data );
 
+If the updated() method is true, this method can be called by the
+update() loop even if no data are provided. This method should clear
+the updated() flag.
+
 =cut
 
 sub putData {
   my $self = shift;
   my ($chartid, $monid, $attrs, @data ) = @_;
+
+  # clear the updated flag
+  $self->updated( 0 );
+
+  # return without action if we have no data
+  return unless @data;
 
   print "# Data trigger for Chart $chartid Monitor $monid\n";
   @data = $self->timemap->do_map( @data );

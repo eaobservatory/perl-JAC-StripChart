@@ -48,7 +48,7 @@ sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
 
-  # Create
+  # Create object
   my $cfg = bless {
 		   FileName => undef,
 		   NXY => [],
@@ -181,6 +181,7 @@ sub read_config {
   $self->nxy( $nx, $ny );
 
   print "NX = $nx   NY = $ny \n";
+  print Dumper($self);
 
   # Read all the chart information
   my @charts;
@@ -210,25 +211,21 @@ sub read_config {
 
     # Form constructor args for monitor object
     my %args;
-    my %filters;
     for my $k (keys %{$data{$m}}) {
       next if $k eq 'monitor_class';
-      if ($k =~ /^filter_(\w+)$/) {
+      if ($k =~ /^(\w+)_(\w+)$/) {
 	# This is a special filter option
-	$filters{$1} = $data{$m}->{$k};
+	$args{$1}->{$2} = $data{$m}->{$k};
       } else {
 	$args{$k} = $data{$m}->{$k};
       }
     }
 
-    # Store filter in arg list
-    $args{filter} = \%filters;
-
     print Dumper(\%args);
 
     my $class = "JAC::StripChart::Monitor::$class_suffix";
     eval "use $class;";
-    throw JAC::StripChart::Error::BadConfig("Attempt to use monitor of class $class except that class could not be loaded: $@") if $@;
+    JAC::StripChart::Error::BadConfig->throw("Attempt to use monitor of class $class except that class could not be loaded: $@") if $@;
 
     $monitors{$m} = $class->new( %args );
 

@@ -72,6 +72,7 @@ sub new {
   my $ts = bless {
 		  ID => $id,
 		  DATA => [], # use array of arrays for now
+		  WINDOW => [], # array of values $tmin & $tmax
 		 }, $class;
 
   return $ts;
@@ -83,7 +84,7 @@ sub new {
 
 =item B<id>
 
-ID string identifying this data set.
+Return ID string identifying this data set.
 
 =cut
 
@@ -98,7 +99,7 @@ Add more data into the time series. Data should be supplied
 as a list of references to arrays of (t,y) doublets.
 
   $ts->add_data( @newdata );
-  $ts->add_data( [ t1, y1 ], [ $t2, $y2 ] );
+  $ts->add_data( [ $t1, $y1 ], [ $t2, $y2 ] );
 
 If the data point already exists for that time slice, the newest value
 will be retained (new data is assumed to supercede older data). If the
@@ -117,19 +118,38 @@ sub add_data {
   my @new = sort { $a->[0] <=> $b->[0] } @_;
 
   my $j = 0;
-  for my $i ( 0.. $#{$self->{DATA}} ) {
+  # Loop through existing data
+  for my $i ( 0.. $#{$self->{DATA}} ) { 
     # we need to see if any members of @new fit into
     # the current array position
-    while ( $new[$j]
-    next if $new[$j] > $self->{DATA}->[$i];
-    
+    while ( $new[$j] ) {
+      # skip to next stored data point if new data are newer than stored data
+      next if ( $new[$j]->[0] > $self->{DATA}->[$i]->[0] ); 
+      # Check for a match and replace with newer value 
+      if ($new[$j]->[0] = $self->{DATA}->[$i]->[0] ) {
+	# If $y is undef, then delete entry
+	if (defined $new[$j]->[1]) {
+	  $self->{DATA}->[$i]->[1] = $new[$j]->[1];
+	} else {
+	  # Set entry to undef
+	  $self->{DATA}->[$i] = undef;
+	}
+	next;
+      }
+      # Else just store the new data
+      push ($self->{DATA}, $new[$j] );
+      $j++;
+    }
   }
 
+  # Sort data and return
+  return sort $self->{DATA};
 }
 
 =item B<data>
 
-Retrieves the data that lies within the currently specified window.
+Retrieves the data that lies within the currently specified
+window. Assumes the data are already sorted into time order.
 
  @data = $ts->data;
 
@@ -158,13 +178,78 @@ sub data {
 	      xyarr => 0,
 	      outside => 0,
 	      @_);
+  my @data;
 
-  if (%opts{xyarr} ) {
+  # Store all of the data
+  my @alldata = @{ $self->{DATA} };
+  my ($tmin, $tmax) = $self->window;
 
-  } else {
+  # Loop through data to find limits
+  foreach my $i (0..$#alldata) {
 
+    if (%opts{outside}) {
+      # Check if current time is just outside window
+      push ( @data, $alldata[$i] ) 
+	if ( ($alldata[$i]->[0] <= $tmin) && ($alldata[$i+1]->[0] >= $tmin) );
+      push ( @data, $alldata[$i] ) 
+	if ( ($alldata[$i]->[0] >= $tmax) && ($alldata[$i-1]->[0] <= $tmax) );
+    }
+
+    # Add data within window
+    push ( @data, $alldata[$i] ) 
+      if ( ($alldata[$i]->[0] >= $tmin) && ($alldata[$i]->[0] <= $tmax) );
+    }
   }
+  
+  if (%opts{xyarr}) {
+    # If separate arrays wanted, split data into 2 arrays
+    my (@tdata, @ydata);
+    foreach my $i (0..$#data) {
+      push (@tdata, $data[$i]->[0]);
+      push (@ydata, $data[$i]->[1]);
+    }
+    return @tdata, @ydata;
+  } 
 
+  return @data;
+}
+
+=item B<window>
+
+Sets the current plotting window
+
+  $ts->window( $tmin, $tmax);
+
+  @limits = $ts->window;
+
+If called with no args, then returns the current window as an array.
+
+=cut
+
+sub window {
+  my $self = shift;
+  if (@_) {
+    @{ $self->{WINDOW} } = @_;
+  } else {
+    return @{ $self->{WINDOW} };
+  }
+  return;
+}
+
+=item B<bounds>
+
+Retrieve the upper and lower bounds of the current window
+
+  @bounds = $ts->bounds;
+
+=cut
+
+sub bounds {
+  my $self = shift;
+
+  my @bounds = ( $self->data->[0]->[0], $self->data->[-1]->[0] );
+
+  return @bounds;
 }
 
 =head1 AUTHOR

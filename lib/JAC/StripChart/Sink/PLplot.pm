@@ -258,6 +258,7 @@ sub _colour_to_index {
     $cindex = $colour;
   } elsif ($colour =~ /[a-z]/) {
     # Now examine other colours and convert known values to indices
+    $colour = "grey" if ($colour eq "gray"); # For those who can't spell...
     for my $j (0..scalar(@knowncolours)) {
       if ($knowncolours[$j] eq $colour) {
 	$cindex = $j + 1;

@@ -25,6 +25,8 @@ use warnings;
 use warnings::register;
 use Carp;
 
+use base qw/ JAC::StripChart::Device /;
+
 use PGPLOT;
 
 use JAC::StripChart::Device::PGPLOT::Subplot;
@@ -54,22 +56,14 @@ Supported options are:
 sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-  my %args = @_;
-
-  my $dev = bless {
-		   DEVID => undef,
-		   NXY => [1,1],
-		  }, $class;
-
-  # Read the required x,y subplots
-  @{$dev->{NXY}} = @{ $args{nxy} } if exists $args{nxy};
+  my $dev = $class->SUPER::new( @_ );
 
   my $devid = pgopen( '/xserve' );
   throw JAC::StripChart::Error::BadPlotDevice("Error opening PGPLOT window")
     if $devid <= 0;
 
   # subdivide the page
-  pgsubp( $dev->{NXY}->[0], $dev->{NXY}->[1] );
+  pgsubp( $dev->nxy );
 
   # store the device id
   $dev->devid( $devid );
@@ -86,30 +80,6 @@ sub new {
 =item B<devid>
 
 The low level PGPLOT device ID returned by the call to PGOPEN.
-
-=cut
-
-sub devid {
-  my $self = shift;
-  if (@_) { $self->{DEVID} = shift; }
-  return $self->{DEVID};
-}
-
-=item B<nxy>
-
-Number of subplots in the control window. Currently readonly since
-there is no need to re-divide the display after it has been
-created. In principal setting these numbers could automatically
-trigger a call to PGSUBP.
-
-  @nxy = $dev->nxy;
-
-=cut
-
-sub nxy {
-  my $self = shift;
-  return @{ $self->{NXY} };
-}
 
 =back
 
@@ -171,7 +141,7 @@ Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council.
+Copyright (C) 2004-2005 Particle Physics and Astronomy Research Council.
 All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under

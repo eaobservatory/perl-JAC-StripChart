@@ -25,6 +25,8 @@ use warnings;
 use warnings::register;
 use Carp;
 
+use base qw/ JAC::StripChart::Device /;
+
 use Graphics::PLplot;
 
 use JAC::StripChart::Device::PLplot::Subplot;
@@ -54,21 +56,13 @@ Supported options are:
 sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-  my %args = @_;
+  my $dev = $class->SUPER::new( @_ );
 
-  my $dev = bless {
-		   DEVID => undef,
-		   NXY => [1,1],
-		  }, $class;
-
-  # Read the required x,y subplots
-  @{$dev->{NXY}} = @{ $args{nxy} } if exists $args{nxy};
-
-  # Select The device
+  # Select the device
   plsdev( "xwin" );
 
   # subdivide the page
-  plssub( $dev->{NXY}->[0], $dev->{NXY}->[1] );
+  plssub( $dev->nxy );
 
   # initialise
   plinit();
@@ -76,28 +70,6 @@ sub new {
   plvsta();
 
   return $dev;
-}
-
-=back
-
-=head2 Accessor Methods
-
-=over 4
-
-=item B<nxy>
-
-Number of subplots in the control window. Currently readonly since
-there is no need to re-divide the display after it has been
-created. In principal setting these numbers could automatically
-trigger a call to PGSUBP.
-
-  @nxy = $dev->nxy;
-
-=cut
-
-sub nxy {
-  my $self = shift;
-  return @{ $self->{NXY} };
 }
 
 =back
@@ -149,7 +121,7 @@ Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council.
+Copyright (C) 2004-2005 Particle Physics and Astronomy Research Council.
 All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under

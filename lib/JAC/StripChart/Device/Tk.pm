@@ -88,15 +88,16 @@ sub new {
   for my $i ( 1 .. $nx ) {
     for my $j ( 1 .. $ny ) {
       my $index = $dev->_ij_to_index( $i, $j );
-      print "********************* INDEX: $index with $i, $j\n";
       $canv[ $index ] = $parent->Canvas( -background => 'white',
 				       )->grid( -column => ($i-1),
-						-row => ($j-1) );
+						-row => ($j-1),
+						-sticky => 'nsew',
+					      );
     }
   }
 
   # pack it into the "context"
-  $parent->pack();
+  $parent->pack( -expand => 1);
 
   # store the canvas objects
   $dev->devid( \@canv );

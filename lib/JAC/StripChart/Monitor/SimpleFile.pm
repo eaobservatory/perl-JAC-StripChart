@@ -83,8 +83,8 @@ sub new {
 		   MonPos => {},
 		   LastRead => 0,
 		   Ncols => undef,
-		   Tcol => undef,
-		   Ycol => undef,
+		   TCol => undef,
+		   YCol => undef,
 		   Tformat => undef,
 		   Id => undef,
 		  }, $class;
@@ -247,8 +247,8 @@ Get/set the time column as passed to getData()
 
 sub tcol {
   my $self = shift;
-  if (@_) { $self->{Tcol} = shift; }
-  return $self->{Tcol};
+  if (@_) { $self->{TCol} = shift; }
+  return $self->{TCol};
 }
 
 =item B<ycol>
@@ -261,8 +261,8 @@ Get/set the Y column as passed to getData()
 
 sub ycol {
   my $self = shift;
-  if (@_) { $self->{Ycol} = shift; }
-  return $self->{Ycol};
+  if (@_) { $self->{YCol} = shift; }
+  return $self->{YCol};
 }
 
 =item B<tformat>
@@ -414,7 +414,8 @@ sub readsimple {
 
     # Convert time data to MJD
     my $tdata = $self->_convert_to_mjd($data[$tcol-1], $tformat);
-    next if $tdata <= $self->_convert_to_mjd($oldest, $tformat);
+    # Note the use of < rather than <= guarantees return of at least 1 data pair for refreshing the display
+    next if $tdata < $self->_convert_to_mjd($oldest, $tformat);
 #    print $tdata."   ".$oldest."\n";
     push (@plotdata, [ $tdata, $data[$ycol-1] ]);
 # Set monitor position to last line in file

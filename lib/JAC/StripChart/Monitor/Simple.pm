@@ -142,9 +142,9 @@ The column number representing the time axis.
 sub tcol {
   my $self = shift;
   if (@_) {
-    $self->{Tcol} = shift;
+    $self->{TCol} = shift;
   }
-  return $self->{Tcol};
+  return $self->{TCol};
 }
 
 =item B<ycol>
@@ -156,9 +156,9 @@ The column number representing the Y-axis data.
 sub ycol {
   my $self = shift;
   if (@_) {
-    $self->{Ycol} = shift;
+    $self->{YCol} = shift;
   }
-  return $self->{Ycol};
+  return $self->{YCol};
 }
 
 =item B<tformat>

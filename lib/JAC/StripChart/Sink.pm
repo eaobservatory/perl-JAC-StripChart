@@ -67,6 +67,7 @@ sub new {
 		   Window => 0,
 		   PlotTitle => ' ',
 		   Attr => ' ',
+		   Output => 'unit',
 		   TimeMap => new JAC::StripChart::TimeMap,
 		  }, $class;
 
@@ -74,7 +75,7 @@ sub new {
     my %args = @_;
 
     # loop over known important methods
-    for my $k (qw| device growt window autoscale yscale yunits plottitle |) {
+    for my $k (qw| device growt window autoscale yscale yunits plottitle output |) {
       $snk->$k($args{$k}) if exists $args{$k};
     }
   }
@@ -189,6 +190,18 @@ sub plottitle {
   my $self = shift;
   if (@_) { $self->{PlotTitle} = shift; }
   return $self->{PlotTitle};
+}
+
+=item B<output>
+
+Set the output time axis units for the chart.
+
+=cut
+
+sub output {
+  my $self = shift;
+  if (@_) { $self->{Output} = shift; }
+  return $self->{Output};
 }
 
 

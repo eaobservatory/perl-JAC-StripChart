@@ -559,7 +559,7 @@ sub _find_index {
   return $#$data if ( $type eq 'max' && $high <= $ref );
 
   # iterate to the correct value
-  my $left = 0;
+  my $left = $start;
   my $right = $#$data;
 
   while (abs($left - $right) > 1) {

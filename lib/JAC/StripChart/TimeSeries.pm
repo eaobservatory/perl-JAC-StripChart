@@ -128,7 +128,7 @@ sub add_data {
   my @sortkeys = sort { $data{$a}->[0] <=> $data{$b}->[0] } keys %data;
 
   # and recreate the sorted list whilst removing undefs
-  @{ $self->{DATA} } = grep { defined $_-[1] }
+  @{ $self->{DATA} } = grep { defined $_->[1] }
                           map { $data{$_} } @sortkeys;
 
   return;
@@ -201,6 +201,9 @@ sub data {
     # Add data within window
     push ( @data, $alldata[$i] ) if $int->contains( $alldata[$i]->[0] );
   }
+
+  # HACK: shouldn't be needed.
+  @data = sort {$a->[0] <=> $b->[0]} @data;
 
   if ($opts{xyarr}) {
     # If separate arrays wanted, split data into 2 arrays

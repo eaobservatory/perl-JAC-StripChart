@@ -31,7 +31,7 @@ use Data::Dumper;
 
 use JAC::StripChart::Error;
 use File::Spec;
-use IO::File;
+use File::stat;
 
 # Need MJD conversion
 use Astro::SLA;
@@ -39,7 +39,6 @@ use Time::Piece;
 
 # Need to be able to read index files
 use lib File::Spec->catdir($ENV{ORAC_DIR},"lib","perl5");
-#use JAC::StripChart::Simple::Access;
 
 use List::Util qw/ min /;
 
@@ -120,7 +119,7 @@ sub filename {
     $self->{SimpleFile} = shift;
 
     # Read file to get number of columns
-    $self->get_columns;
+    $self->find_ncolumns;
   }
   return $self->{SimpleFile};
 }
@@ -144,8 +143,8 @@ sub ncols {
 =item B<_monitor_posn>
 
 This (private) hash contains information on the data most recently
-obtained from the index file for each stripchart that is monitoring
-this index file.
+obtained from the data file for each stripchart that is monitoring
+this data file.
 
 Valid keys are derived using the C<_genkey> method.
 
@@ -203,6 +202,8 @@ sub find_ncolumns {
   open my $handle, "< $file" or
     throw JAC::StripChart::Error::FatalError( "Unable to open file $file despite its existence: $!");
 
+  # If successful, then set LastRead attribute
+  $self->last_read(time());
   # Read file, looking for columns
   my $ncols;
   while (my $line = <$handle>) {
@@ -241,10 +242,10 @@ sub last_read {
 
 =item B<getData>
 
-Retrieve the data that has arrived in the index file since the
+Retrieve the data that has arrived in the data file since the
 last time we were asked for data.
 
-  @newdata = $mon->getData( $id, $tcol, $ycol, $tframe);
+  @newdata = $mon->getData( $id, $tcol, $ycol, $tformat);
 
 where ID is a unique identifier associated with a specific
 strip chart. e.g. "chart1", "chart2".
@@ -259,10 +260,10 @@ sub getData {
 
   # Fail if less than 4 parameters are present
   $self->_checkparams( 4, \@_);
-  my ($id, $tcol, $ycol, $tframe) = @_;
+  my ($id, $tcol, $ycol, $tformat) = @_;
 
   # make sure we have a column count
-  my $ncol = $self->ncol;
+  my $ncol = $self->ncols;
   if (!$ncol) {
     $ncol = $self->find_ncolumns;
     # no file so return
@@ -292,8 +293,12 @@ sub getData {
     $oldest = $self->oldest_monpos;
   }
 
+  return if ($self->last_read > $self->last_write($self->filename));
+
+#  print "Woo hoo - new data has arrived :-) \n";
+
   # Read new data and store in the @cache
-  my @cache = $self->readsimple($id, $tcol, $ycol, $tframe, $oldest);
+  my @cache = $self->readsimple($id, $tcol, $ycol, $tformat, $oldest);
 
   # Set the reference time to a new value
   $self->_monitor_posn( $key, $cache[-1]->[0])
@@ -312,7 +317,7 @@ sub getData {
 
 A method for returning the two columns of data of interest.
 
-  @data = $self->readsimple( $tcol, $ycol, $id, $tframe, $oldest);
+  @data = $self->readsimple( $tcol, $ycol, $id, $tformat, $oldest);
 
 where $tcol is the index of the column representing time, $ycol
 is the index of the column, etc
@@ -324,7 +329,7 @@ sub readsimple {
 
   # Fail if less than 5 parameters are present
   $self->_checkparams( 5, \@_ );
-  my ($id, $tcol, $ycol, $tframe, $oldest) = @_;
+  my ($id, $tcol, $ycol, $tformat, $oldest) = @_;
 
   # Get the filename and see if it is present
   my $file = $self->filename;
@@ -348,7 +353,7 @@ sub readsimple {
     # This assumes the time column is in numerical format
     next if $data[$tcol-1] < $oldest;
 #    # Convert time data to ORACTIME
-#    my $tdata = convert_to_oractime($data[$tcol-1], $tframe);
+#    my $tdata = convert_to_oractime($data[$tcol-1], $tformat);
 #    push (@plotdata, [ $tdata, $data[$ycol-1] ]);
     push (@plotdata, [ $data[$tcol-1], $data[$ycol-1] ]);
   }
@@ -418,7 +423,7 @@ sub _checkparams {
 
 =item B<_abs_path>
 
-Internal method to attach path to a specified index file location.
+Internal method to attach path to a specified file location.
 
 =cut
 
@@ -432,6 +437,23 @@ sub _abs_path {
   # decision!
   return File::Spec->rel2abs( $file, $ENV{ORAC_DATA_OUT});
 
+}
+
+=item B<last_write>
+
+Internal method to determine the time a file was last written to. Uses the 
+File::stat module.
+
+  my $last_write_time = $self->last_write($self->filename);
+
+=cut
+
+sub last_write {
+  my $self = shift;
+  my $file = shift;
+  my $inode = stat($file);
+#  print $self->last_read." ".$inode->mtime."\n";
+  return $inode->mtime;
 }
 
 =item B<_oractime_to_mjd>

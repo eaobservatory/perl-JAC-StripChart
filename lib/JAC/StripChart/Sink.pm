@@ -226,26 +226,43 @@ sub yunits {
 
 =item B<attr>
 
-Store a monitor attribute object with the time series
+Store the monitor attributes indexed by monitor ID
 
-  $ts->attr( $attr );
+  $snk->attr( %attr ); # Stores the attributes
 
-Retrieve attribute
+Retrieve attribute object for given $monid
 
-  $attr = $ts->attr;
+  $attr = $snk->attr( $monid );
+
+Return all monitor ID/attribute pairs:
+
+  %attr = $snk->attr();
 
 =cut
 
 sub attr {
   my $self = shift;
-
+  # Check if arguments are passed and whether they are a single mon ID
+  # or a hash to store
   if (@_) {
-    my %attr = @_;
-    $self->{Attr} = \%attr;
+    if (scalar(@_) ==  1) {
+      my $monid = shift;
+      # retrieval
+      return $self->{MonAttrs}->{$monid};
+    } else {
+      my %attrs = @_;
+      foreach my $monid (keys %attrs) {
+	my $attr = $attrs{$monid};
+	throw JAC::StripChart::Error::BadClass("Supplied attribute not of class JAC::StripChart::Chart::Attrs")
+	  unless UNIVERSAL::isa( $attr, "JAC::StripChart::Chart::Attrs");
+	$self->{MonAttrs}->{$monid} = $attr;
+      }
+    }
+    return;
   } else {
-    return $self->{Attr};
-  }
-  return;
+    return %{ $self->{MonAttrs} };
+ }
+
 }
 
 =back
@@ -260,7 +277,7 @@ Runs any code required to initialise the sink. Should be given
 the attribute objects configured for each monitor serviced by this
 sink.
 
-  $snk->init( @attrs );
+  $snk->init( %attrs );
 
 =cut
 

@@ -336,7 +336,8 @@ sub putData {
   my $plt = $self->astPlot;
 
   # Note that if the plot attributes have been modified we are forced
-  # to redraw the plot
+  # to redraw the plot regardless of whether the data fit inside the current
+  # bounds
   if ($self->updated) {
     $self->device->clear();
     undef $plt;
@@ -447,6 +448,7 @@ sub putData {
       unless ($mon eq $monid) {
         # Retrieve cached data
         my $tscache = $self->astCache( $mon );
+	$tscache->window( $winlo, $winhi );
 	my $ncachepts = $tscache->npts( outside => 1 );
 
 	# Retrieve plotting attributes

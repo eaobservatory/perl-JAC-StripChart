@@ -74,8 +74,8 @@ sub new {
 		  ID => $id,
 		  DATA => [], # use array of arrays for now
 		  WINDOW => undef, # Number::Interval object
-		  BOUNDS => undef, # Cache of data bounds
-		  WBOUNDS => undef, # Cache of windowed data
+		  BOUNDS => [], # Cache of data bounds
+		  WBOUNDS => [], # Cache of windowed data
 		 }, $class;
 
   return $ts;
@@ -130,9 +130,31 @@ sub add_data {
   my @newdata = sort { $a->[0] <=> $b->[0] } @_;
 
   # also just push if we do not have any data yet
+  my $newer;
   if ( !@{$self->{DATA}} || $newdata[0]->[0] > $self->{DATA}->[-1]->[0] ) {
-    # store, removing undefs in the new data set
-    push( @{ $self->{DATA} }, grep { defined $_->[1] } @newdata );
+    # indicate that we only have new data
+    $newer = 1;
+
+    # filter out undef values [since we may want the cleaned data
+    # for bounds checking]
+    @newdata = grep { defined $_->[1] } @newdata;
+
+    # and store the new data
+    push( @{ $self->{DATA} }, @newdata );
+
+    # since the data are all newer we can calculate the new bounds
+    # simply by looking at the new data and the cached bounds.
+    # only do this if we have a precalculated cache
+    my @cache = $self->bounds_cache();
+    if (@cache) {
+      $cache[1] = $newdata[-1]->[0];
+      my $nmin = min( map { $_->[1] } @newdata );
+      my $nmax = max( map { $_->[1] } @newdata );
+      $cache[2] = $nmin if $nmin < $cache[2];
+      $cache[3] = $nmax if $nmax > $cache[3];
+      $self->bounds_cache( \@cache );
+    }
+
   } else {
     # the new points were within the old
     # If this happens a lot we can further optimise by restricting
@@ -153,8 +175,8 @@ sub add_data {
 
   }
 
-  # clear the bounds cache
-  $self->bounds_cache( undef );
+  # clear the bounds cache (unless we've recalculated)
+  $self->bounds_cache( undef ) unless $newer;
   $self->wbounds_cache( undef );
 
   # no return value

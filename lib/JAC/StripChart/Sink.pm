@@ -475,6 +475,72 @@ sub _set_and_check_update_flag {
 
 =back
 
+=item B<_update_line_colours>
+
+Checks the line colours that have been set and sorts out any
+duplicates to avoid coinfusing plots. Must take a hash of attribute
+objects indexed by monitor ID.
+
+  $snk->_update_line_colours( %attrs );
+
+Will leave colours unchanged if called with no argument.
+
+=cut
+
+sub _update_line_colours {
+  my $self = shift;
+  my %attrs;
+
+  if (@_) {
+    %attrs = @_;
+  } else {
+   warnings::warnif("No attributes supplied - will not check and update colours "); 
+   return;
+  }
+
+  use Data::Dumper;
+
+  # Loop over the monitors to check for identical line colours
+  my %colourcount;
+  my %moncols; 
+  foreach my $monid (keys %attrs) {
+    $moncols{$monid} = $self->_colour_to_index($attrs{$monid}->linecol);
+  }
+  # Now determine how many of each colour there are
+  foreach my $col (values %moncols) {
+    my $i = ( (defined $colourcount{$col}) ? $colourcount{$col} : 1);
+    $i++ if ($colourcount{$col});
+    $colourcount{$col} = $i;
+  }
+  # Now find unused colours
+  my @uncols;
+  # KLUDGE: hard-wired number of colour indices
+  my $colour = 0;
+  foreach my $cindex (1..15) {
+    foreach my $monid (keys %moncols) {
+      # Check if colour index exists in hash else add it to list of unused colours
+      $colour = 1 if (exists $colourcount{$cindex});
+    }
+    push (@uncols, $cindex) unless ($colour);
+    $colour = 0;
+  }
+
+  # Now check for those that occur more than once and
+  # set line colour attributes to new values
+  foreach my $monid (keys %attrs) {
+    if ($colourcount{$moncols{$monid}} > 1) {
+      $attrs{$monid}->linecol($uncols[0]); # Set linecol attribute
+      shift @uncols; # this colour is now used so remove it from @uncols
+      $colourcount{$moncols{$monid}}--; # reduce count for that colour
+    }
+  }
+
+  return;
+
+}
+
+=back
+
 =end __PRIVATE_METHODS__
 
 =head1 AUTHOR

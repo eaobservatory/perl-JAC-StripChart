@@ -156,9 +156,9 @@ sub add_data {
 
   }
 
-#  @cleaned = grep { defined $_->[1] } @unclean;
+  # Delete undef'ed entries
+  @{ $self->{DATA} } = sort { $a->[0] <=> $b->[0]} grep { defined $_->[1] } @{ $self->{DATA} };
 
-  # Sort data and return
   return $self->{DATA};
 }
 
@@ -213,10 +213,14 @@ sub data {
 
     if ($opts{outside}) {
       # Check if current time is just outside window
-      push ( @data, $alldata[$i] ) 
-	if ( ($alldata[$i]->[0] <= $tmin) && ($alldata[$i+1]->[0] >= $tmin) );
-      push ( @data, $alldata[$i] ) 
-	if ( ($alldata[$i]->[0] >= $tmax) && ($alldata[$i-1]->[0] <= $tmax) );
+      if ($i != 0) {
+	push ( @data, $alldata[$i] ) 
+	  if ( ($alldata[$i]->[0] >= $tmax) && ($alldata[$i-1]->[0] <= $tmax) );
+      }
+      if ($i != $#alldata) {
+	push ( @data, $alldata[$i] ) 
+	  if ( ($alldata[$i]->[0] <= $tmin) && ($alldata[$i+1]->[0] >= $tmin) );
+      }
     }
 
     # Add data within window

@@ -276,7 +276,7 @@ sub data {
     if ($first > 0) {
       my $wmin = $int->min;
       # note that wmin must be defined, else $first would be 0
-      push( @data, $alldata[$first-1]) if $wmin < $dtmin;
+      unshift( @data, $alldata[$first-1]) if $wmin < $dtmin;
     }
 
     # then see if the max point equals the window
@@ -286,9 +286,6 @@ sub data {
       push( @data, $alldata[$last+1]) if $wmax > $dtmax;
     }
   }
-
-  # HACK: shouldn't be needed.
-  @data = sort {$a->[0] <=> $b->[0]} @data;
 
   if ($opts{xyarr}) {
     # If separate arrays wanted, split data into 2 arrays

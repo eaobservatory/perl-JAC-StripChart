@@ -244,16 +244,19 @@ sub putData {
 
 =head2 Protected Methods
 
+These are private methods that should be overridden by subclasses.
+They are not part of the public API.
+
 =over 4
 
-=item B<default_dev_class>
+=item B<_default_dev_class>
 
 This value overrides the behaviour of the C<device_class> method
 for subclasses.
 
 =cut
 
-sub default_dev_class {
+sub _default_dev_class {
   return '';
 }
 

@@ -109,27 +109,30 @@ sub init {
   my $npen = scalar(keys %attrs);
 
   # Maximum of 4 pens
-  if ($npen > 4) {
+  my $maxpen = 4;
+  if ($npen > $maxpen) {
     warnings::warnif("Can only support 4 pens, not $npen");
-    $npen = 4;
+    $npen = $maxpen;
   }
 
   # We need to specify color for each pen [should use Attrs]
   my $colbox = 1;
   my $collab = 3;
 
-  my @colline = (2..($npen+1));  # color of lines
+  # Start colour from color 2
+  my $startcol = 2;
+  my @colline = ($startcol..($npen+$startcol-1));  # color of lines
   my @styline = @colline;   # linestyle
   my @legline = keys %attrs;
 
   # Create a hash indexed by monitor id so that we can associated
   # particular pen with a particular monitor
   my $i = 0;
-  my %pen = map { $_ =>  ++$i } keys %attrs;
+  my %pen = map { $_ =>  $i++ } keys %attrs;
   $self->penid( %pen );
 
   # pad
-  for my $i (($#colline+1)..3) {
+  for my $i (($#colline+1)..($maxpen-1)) {
     $colline[$i] = 5;
     $styline[$i] = $colline[$i];
     $legline[$i] = '';
@@ -142,7 +145,7 @@ sub init {
   my $tmin = 0;
   my $tmax = 1;
   my $ymin = 0;
-  my $ymax = 10;
+  my $ymax = 0.1;
   my $tjump = 0.1;
 
   my $autoy = 1;  # autoscale y
@@ -180,7 +183,7 @@ sub putData {
 
   my $pen = $self->penid( $monid );
   my $id  = $self->stripid();
-  return unless $pen;
+  return unless defined $pen;
 
   for my $xy (@data) {
     $id->plstripa( $pen, $xy->[0], $xy->[1]);

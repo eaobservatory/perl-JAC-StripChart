@@ -74,6 +74,8 @@ sub new {
 		  ID => $id,
 		  DATA => [], # use array of arrays for now
 		  WINDOW => undef, # Number::Interval object
+		  BOUNDS => undef, # Cache of data bounds
+		  WBOUNDS => undef, # Cache of windowed data
 		 }, $class;
 
   return $ts;
@@ -116,20 +118,46 @@ A single time should refer to a single value.
 
 sub add_data {
   my $self = shift;
+  return unless @_;
 
-  # We want to remove duplicates. The easiest way to do this is
+  # It is importance that we remove duplicates by overwriting the old
+  # values with the new. The easiest way to do this is
   # to use a hash (although not the most memory efficient for a
-  # large time series).
+  # large time series). In order to prevent unnecessary hash creation
+  # and resorting we first sort the input data and if the oldest new
+  # point is newer than the newest old point we simply push the new
+  # data onto the old without resorting to a hash
+  my @newdata = sort { $a->[0] <=> $b->[0] } @_;
 
-  # hash the existing data with the new data
-  my %data = map { $_->[0] => $_ } @{ $self->{DATA} }, @_;
+  # also just push if we do not have any data yet
+  if ( !@{$self->{DATA}} || $newdata[0]->[0] > $self->{DATA}->[-1]->[0] ) {
+    # store, removing undefs in the new data set
+    push( @{ $self->{DATA} }, grep { defined $_->[1] } @newdata );
+  } else {
+    # the new points were within the old
+    # If this happens a lot we can further optimise by restricting
+    # our merge to the subset of old data that lies within the range
+    # of the new data. For now, do a full resort
 
-  # Sort the keys into time order
-  my @sortkeys = sort { $data{$a}->[0] <=> $data{$b}->[0] } keys %data;
+    # hash the existing data with the new data
+    # Note that 3.50 is different from 3.5 so we force numify
+    my %data = map { (0+ $_->[0]) => $_ } @{ $self->{DATA} }, @newdata;
 
-  # and recreate the sorted list whilst removing undefs
-  @{ $self->{DATA} } = grep { defined $_->[1] }
-                          map { $data{$_} } @sortkeys;
+    # Sort the keys into time order
+    my @sortkeys = sort { $data{$a}->[0] <=> $data{$b}->[0] 
+			} keys %data;
+
+    # and recreate the sorted list whilst removing undefs
+    @{ $self->{DATA} } = grep { defined $_->[1] }
+                              map { $data{$_} } @sortkeys;
+
+  }
+
+  # clear the bounds cache
+  $self->bounds_cache( undef );
+  $self->wbounds_cache( undef );
+
+  # no return value
   return;
 }
 
@@ -289,6 +317,10 @@ sub window {
     } else {
       croak "Bizarre number of arguments to window() method";
     }
+
+    # clear the cache
+    $self->wbounds_cache( undef );
+
   }
 
   if (wantarray) {
@@ -301,6 +333,72 @@ sub window {
     return $self->{WINDOW};
   }
 }
+
+=back
+
+=begin __PRIVATE_ACCESSORS
+
+=head2 Private Accessor Methods
+
+These methods are for internal use.
+
+=over 4
+
+=item B<bounds_cache>
+
+This is the cache for the previously calculated bounds
+as calculated from the full data range. It is populated
+on demand and cleared when ever new data are added to the
+time series.
+
+  @bounds = $ts->bounds_cache();
+  $ts->bounds_cache( \@bounds );
+
+The cache is cleared with an undef
+
+  $ts->bounds_cache( undef );
+
+=cut
+
+sub bounds_cache {
+  my $self = shift;
+  if (@_) {
+    my $arg = shift;
+    if (defined $arg) {
+      @{ $self->{BOUNDS} } = @$arg;
+    } else {
+      @{ $self->{BOUNDS} } = ();
+    }
+  }
+  return @{ $self->{BOUNDS} };
+}
+
+=item B<wbounds_cache>
+
+The bounds for the current window. Same behaviour as the 
+C<bounds_cache> method except that the cache is cleared
+when window() is updated.
+
+=cut
+
+sub wbounds_cache {
+  my $self = shift;
+  if (@_) {
+    my $arg = shift;
+    if (defined $arg) {
+      @{ $self->{WBOUNDS} } = @$arg;
+    } else {
+      @{ $self->{WBOUNDS} } = ();
+    }
+  }
+  return @{ $self->{WBOUNDS} };
+}
+
+=back
+
+=end __PRIVATE_ACCESSORS
+
+=head2 General Methods
 
 =item B<bounds>
 
@@ -319,9 +417,21 @@ sub bounds {
   my $self = shift;
   my $full = shift;
 
+  # see if we have a valid cache and return it
+  my @bounds;
+  if ($full) {
+    @bounds = $self->bounds_cache();
+  } else {
+    @bounds = $self->wbounds_cache();
+  }
+  return @bounds if @bounds;
+
   # clear the window and retain the current values
+  # we also have to retain the windowed cache
+  my @wcache;
   my $oldwin;
   if ($full) {
+    @wcache = $self->wbounds_cache;
     $oldwin = $self->window;
     $self->window( undef, undef );
   }
@@ -331,14 +441,22 @@ sub bounds {
 
   # reset the windowing
   $self->window( $oldwin ) if defined $oldwin;
+  $self->wbounds_cache( \@wcache ) if @wcache;
 
-  my @tdata = @{ $tdataref };
-  my @ydata = @{ $ydataref };
+  # sorted order so the tmin and tmax are easy
+  my $tmin = $tdataref->[0];
+  my $tmax = $tdataref->[-1];
 
-  my $tmin = min( @tdata );
-  my $tmax = max( @tdata );
-  my $ymin = min( @ydata );
-  my $ymax = max( @ydata );
+  # we must calculate the Y range
+  my $ymin = min( @$ydataref );
+  my $ymax = max( @$ydataref );
+
+  # cache the result
+  if ($full) {
+    $self->bounds_cache( [$tmin, $tmax, $ymin, $ymax] );
+  } else {
+    $self->wbounds_cache( [$tmin, $tmax, $ymin, $ymax] );
+  }
 
   return ( $tmin, $tmax, $ymin, $ymax );
 }
@@ -421,6 +539,8 @@ sub prevdata {
     return $prev;
   }
 }
+
+=back
 
 =head1 AUTHOR
 

@@ -378,14 +378,16 @@ Translate given plot symbol to PGPLOT symbol index
 
   $self->_sym_to_index( $style );
 
-For now, only support basic symbols (circle, square etc).
+For now, only support basic symbols (circle, square etc). If symbol
+index is given directly, then check for valid value and set it to the
+given or default value.
 
 =cut
 
 sub _sym_to_index {
   my $self = shift;
   my $sym = shift;
-  my $symindex = 4;
+  my $symindex = -10;
 
   # Prefix with `f' to get filled versions
   my %knownsymbols = ( square => 0,
@@ -403,10 +405,20 @@ sub _sym_to_index {
 		       fstar => 18,
 		       fdiamond => -4);
 
-  foreach my $symkey (keys %knownsymbols) {
-    $symindex = $knownsymbols{$symkey} if ($symkey eq $sym);
+  if ($sym =~ /\d/) {
+    throw JAC::StripChart::Error::BadConfig("Symbol index not defined - must lie between -4 and 31") 
+      if ($sym > 31 || $sym < -4);
+    $symindex = $sym;
+  } elsif ($sym =~ /[a-z]/) {
+    foreach my $symkey (keys %knownsymbols) {
+      $symindex = $knownsymbols{$symkey} if ($symkey eq $sym);
+    }
   }
-  
+  if ($symindex == -10) {
+    warnings::warnif(" Unknown symbol, '$sym': setting to default (+)");
+    $symindex = 7;
+  }
+
   return $symindex;
 }
 

@@ -62,6 +62,7 @@ sub new {
 		   GrowT => 1,
 		   AutoScale => 1,
 		   Yscale => [0,1],
+		   Yunits => ' ',
 		   Window => 3600,
 		   PlotTitle => ' ',
 		  }, $class;
@@ -70,7 +71,7 @@ sub new {
     my %args = @_;
 
     # loop over known important methods
-    for my $k (qw| device growt window autoscale yscale plottitle |) {
+    for my $k (qw| device growt window autoscale yscale yunits plottitle |) {
       $snk->$k($args{$k}) if exists $args{$k};
     }
   }
@@ -200,6 +201,26 @@ sub yscale {
     @{ $self->{Yscale} } = @yl;
   }
   return @{ $self->{Yscale} };
+}
+
+
+=item B<yunits>
+
+The units for the Y axis. 
+
+  $yunits = $snk->yunits;
+
+  $snk->yunits( $yunits );
+
+=cut
+
+sub yunits {
+  my $self = shift;
+  if (@_) {
+    my $yunits = shift;
+    $self->{Yunits} = $yunits;
+  }
+  return $self->{Yunits};
 }
 
 =back

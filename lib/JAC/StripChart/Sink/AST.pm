@@ -138,23 +138,22 @@ Probably need the chart title supplied here.
 sub init {
   my $self = shift;
 
-  my %attrs = @_;
-  $self->attr(%attrs);
+  my @attrs = @_;
+  $self->attr(@attrs);
 
   # Create the AST plot and set the plotting attributes
   my $title = $self->plottitle;
   my $yunits = $self->yunits;
   # Other labels are not defined yet
-#  my $xlabel = $self->;
-#  my $ylabel = $self->;
-#  my $xunits = $self->;
+#  my $xlabel;
+#  my $ylabel;
+#  my $xunits;
   my $fr = new Starlink::AST::Frame( 2, "title=$title,label(1)=Time,unit(1)=MJD,label(2)=Flux,unit(2)=$yunits" );
 
   $self->astFrame( $fr );
 
   # We can not set plot attributes here since we are in principle creating
   # a new plot each time the scale changes
-
 }
 
 =item B<putData>
@@ -173,64 +172,73 @@ sub putData {
 
   # Retrieve or create new timeseries object
   my $ts = $self->astCache( $monid );
-  
+
   # Store new data in it
   $ts->add_data( @data );
 
   # Calculate limits of entire timeseries
   my ($xmin, $xmax, $ymin, $ymax) = $ts->bounds(1);
 
-  # Retrieve window size
+  if ($xmin == $xmax) {
+    $xmax = 1.1*$xmin;
+  }
+  if ($ymin == $ymax) {
+    $ymin = 0.9*$ymin;
+    $ymax = 1.1*$ymax;
+  }
+
+  # In the code below, xmin/max refer to the PLOT bounds, while
+  # tmin/max refer to the limits of the time axis within the plot
+  # window defined by xmin/max. Clear? :)
+
+  # Retrieve window size from ini file
   my $window = $self->window;
   my $growt = $self->growt;
-  my ($tmin, $tmax);
 
   # Establish plot limits
-  # Catch the case that we have only one point
-  if ($xmax == $xmin) {
-    $xmax = $xmin + $window/24.0;
-  }
   # If no window defined, then set limits to entire range, regardless of growt
+  my ($tmin, $tmax);
   unless ($window) {
     $tmin = $xmin;
     $tmax = $xmax;
   } else {
+    # Convert $window to days from HOURS
+    $window = $window / 24.0;
     # If a window has been set...
     if ($growt) {
       # ...and growt is true, then: check whether the window spans the
       # range of data points and set accordingly, scaling either from
       # the min or max.
-      my $dx = $xmin + $window/24.0;
-      if ($dx < $xmin) {
+      my $xupper = $xmin + $window;
+      if ($xupper < $xmax) {
 	$tmin = $xmin;
 	$tmax = $xmax;
-#	$self->window( $dt ); 
       } else {
 	$tmin = $xmin;
-	$tmax = $tmin + $window/24.0;
-	$self->window(0); # so that xmin and xmax are used from now on.
+	$tmax = $tmin + $window;
       }
     } else {
       # Catch the case where the the range of data points is
       # smaller than the requested window so that the limits are
       # scaled relative to the min value rather than the max.
-      my $dx = $xmax - $window/24.0;
-      if ($dx > $xmin) {
-	$tmax = $xmax;
-	$tmin = $tmax - $window/24.0;
-      } else {
+      my $xupper = $xmin + $window;
+      if ($xupper > $xmax) {
 	$tmin = $xmin;
-	$tmax = $tmin + $window/24.0;
+	$tmax = $tmin + $window;
+      } else {
+	$tmax = $xmax;
+	$tmin = $tmax - $window;
       }
     }
   }
 
   # Store plotting window
   $ts->window($tmin, $tmax); 
-  # Retrieve data limits within current window
-  ($xmin, $xmax, $ymin, $ymax) = $ts->bounds;
+  # Retrieve data limits within current window if there is more than 1 pt
+  ($xmin, $xmax, $ymin, $ymax) = $ts->bounds if ($#data >1);
 
-  # Re-set plot limits
+  # Re-set plot limits to range of time values because the size of the
+  # window may cause the plot extend beyond the range of time values.
   $xmin = $tmin;
   $xmax = $tmax;
 
@@ -240,7 +248,9 @@ sub putData {
   # Retrieve data within the plot window
   my ($xref, $yref);
   ($xref, $yref) = $ts->data(xyarr => 1, outside => 1);
-
+  # Immediately store number of data points
+  my $npts = (defined $xref ? scalar(@{$xref}) : 0);
+  
   # Now need to find out whether the data range for plotting
   # has changed. If it has we need to clear and recreate the
   # plot.
@@ -249,6 +259,7 @@ sub putData {
 
   if (defined $plt) {
     $isold = 1;
+
     # We have a plot but we are not sure whether the bounds are okay
     # Get the current plot bounds from the plot frame
     my @plotbounds = $plt->PBox;
@@ -271,14 +282,20 @@ sub putData {
 
   # Create the new AST plot object if we do not have one
   if (!defined $plt) {
-    # Adjust plot limits to look nice
+    # Check Y bounds of all monitors
+    # Set plot limits
     if ($self->autoscale) {
-      my $dy = $ymax - $ymin;
-      $ymin = $ymin - 0.1*$dy; # Expand by 10% of range above and below
-      $ymax = $ymax + 0.1*$dy;
-    } else {
+      if ($npts > 1) {
+	my $dy = $ymax - $ymin;
+	$ymin = $ymin - 0.1*$dy; # Expand by 10% of range above and below
+	$ymax = $ymax + 0.1*$dy;
+      } else {
+	$ymin = 0.9*$ymin; # Expand by 10% if only one datum is present
+	$ymax = 1.1*$ymax;
+      }
+    } elsif ($self->yscale) {
       ($ymin,$ymax) = $self->yscale; # Set ymin/max from Yscale attribute
-    }
+    } 
     # Expand t-axis by 10% of window
     my $dx = $xmax - $xmin;
     $xmax = $xmax + 0.1*$dx;
@@ -287,7 +304,7 @@ sub putData {
     $plt = new Starlink::AST::Plot( $self->astFrame(), [0,0,1,1],
 				    [$xmin,$ymin,$xmax,$ymax], 
 				    "size(title)=1.5,size(textlab)=1.3,size(numlab)=1.3,".
-				    "colour(title)=3,colour(textlab)=3,".
+				    "colour(title)=3,colour(textlab)=3,labelling=exterior,".
 				    "colour(border)=2,colour(numlab)=2,colour(ticks)=2");
     $self->astPlot( $plt );
   }
@@ -295,8 +312,9 @@ sub putData {
   # Register the correct plotting engine callbacks
   $self->_grfselect( $plt );
 
-  # draw the plot axes if we have changed the plot bounds
+  # Draw the plot axes if we have changed the plot bounds
   unless ($isold) {
+    $plt->Set("Labelling","exterior"); # Doesn't seem to do anything...
     $plt->Grid();
     # retrieve all other data from cache
     my %cache = $self->astCache;
@@ -304,19 +322,21 @@ sub putData {
       unless ($mon eq $monid) {
         # Retrieve cached data
         my $tscache = $self->astCache( $mon );
-        my ($newxref, $newyref) = $tscache->data(xyarr => 1, outside => 1);
+        my ($xcache, $ycache) = $tscache->data(xyarr => 1, outside => 1);
+	my $ncachepts = (defined $xcache ? scalar(@{$xcache}) : 0);
+
 	# Retrieve plotting attributes
-	my %tsattr = %{ $self->attr($monid) };
-	my $tslcol = $self->_colour_to_index($tsattr{linecol});
-	my $tslstyle = $self->_style_to_index($tsattr{linestyle});
-	my $tsscol = $self->_colour_to_index($tsattr{symcol});
-	my $tssym = $self->_sym_to_index($tsattr{symbol});
+	my $tsattr = $self->attr($mon);
+	my $tslcol = $self->_colour_to_index($tsattr->linecol);
+	my $tslstyle = $self->_style_to_index($tsattr->linestyle);
+	my $tsscol = $self->_colour_to_index($tsattr->symcol);
+	my $tssym = $self->_sym_to_index($tsattr->symbol);
 	# Replot data
+        $plt->Set("colour(markers)",$tsscol);
+        $plt->Mark($tssym, $xcache, $ycache) if ($ncachepts > 0);
         $plt->Set("colour(curves)",$tslcol);
         $plt->Set("style(curves)", $tslstyle);
-        $plt->PolyCurve($newxref, $newyref);
-        $plt->Set("colour(markers)",$tsscol);
-        $plt->Mark($tssym, $newxref, $newyref);
+        $plt->PolyCurve($xcache, $ycache) if ($ncachepts > 1);
       }
     }
   }
@@ -329,13 +349,14 @@ sub putData {
   my $linestyle = $self->_style_to_index($attr->linestyle);
   my $symcol = $self->_colour_to_index($attr->symcol);
   my $symbol = $self->_sym_to_index($attr->symbol);
-  
+
   # plot the data using the requested attributes
+  $plt->Set("colour(markers)",$symcol);
+  $plt->Mark($symbol, $xref, $yref) if ($npts > 0);
   $plt->Set("colour(curves)", $linecol);
   $plt->Set("style(curves)", $linestyle);
-  $plt->PolyCurve($xref, $yref);
-  $plt->Set("colour(markers)",$symcol);
-  $plt->Mark($symbol, $xref, $yref);
+  # Don't try and draw a curve if only 1 point
+  $plt->PolyCurve($xref, $yref) if ($npts > 1); 
 
   # return and wait for more data
   return;

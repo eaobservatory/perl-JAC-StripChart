@@ -138,8 +138,17 @@ Probably need the chart title supplied here.
 sub init {
   my $self = shift;
 
+  my %attrs = @_;
+  $self->attr(%attrs);
+
   # Create the AST plot and set the plotting attributes
-  my $fr = new Starlink::AST::Frame( 2, "title=Stripchart,label(1)=Time,unit(1)=MJD,label(2)=Flux,unit(2)=Jy" );
+  my $title = $self->plottitle;
+  my $yunits = $self->yunits;
+  # Other labels are not defined yet
+#  my $xlabel = $self->;
+#  my $ylabel = $self->;
+#  my $xunits = $self->;
+  my $fr = new Starlink::AST::Frame( 2, "title=$title,label(1)=Time,unit(1)=MJD,label(2)=Flux,unit(2)=$yunits" );
 
   $self->astFrame( $fr );
 
@@ -160,45 +169,69 @@ sub putData {
   my $self = shift;
   my ($chartid, $monid, $attr, @data ) = @_;
 
+  use Data::Dumper;
+
   # Retrieve or create new timeseries object
   my $ts = $self->astCache( $monid );
-
+  
   # Store new data in it
   $ts->add_data( @data );
 
-  # Setting the plot limits is a 2-step process.
-  # First time this is called, the bounds are set to the entire
-  # timeseries. Then calculate the plot min & max from these values.
-  # Next, set the desired plot window and re-calculate the the bounds
-  # of the data within the window so that xmin is set to the oldest
-  # time *within the window*.
-  # On subsequent calls, 
+  # Calculate limits of entire timeseries
+  my ($xmin, $xmax, $ymin, $ymax) = $ts->bounds(1);
 
-  # Calculate new limits of time series
-  my ($xmin, $xmax, $ymin, $ymax ) = $ts->bounds;
-
-  my ($tmin, $tmax);
   # Retrieve window size
   my $window = $self->window;
-  # Establish plot limits, window defined relative to most recent value
-  if ($window) {
+  my $growt = $self->growt;
+  my ($tmin, $tmax);
+
+  # Establish plot limits
+  # Catch the case that we have only one point
+  if ($xmax == $xmin) {
+    $xmax = $xmin + $window/24.0;
+  }
+  # If no window defined, then set limits to entire range, regardless of growt
+  unless ($window) {
+    $tmin = $xmin;
     $tmax = $xmax;
-    $tmin = $tmax - $window/24.0; # $window is in hours
-  } else { # Set to full range
-    $tmin = $xmin; # Earliest time
-    $tmax = $xmax; # Most recent time
+  } else {
+    # If a window has been set...
+    if ($growt) {
+      # ...and growt is true, then: check whether the window spans the
+      # range of data points and set accordingly, scaling either from
+      # the min or max.
+      my $dx = $xmin + $window/24.0;
+      if ($dx < $xmin) {
+	$tmin = $xmin;
+	$tmax = $xmax;
+#	$self->window( $dt ); 
+      } else {
+	$tmin = $xmin;
+	$tmax = $tmin + $window/24.0;
+	$self->window(0); # so that xmin and xmax are used from now on.
+      }
+    } else {
+      # Catch the case where the the range of data points is
+      # smaller than the requested window so that the limits are
+      # scaled relative to the min value rather than the max.
+      my $dx = $xmax - $window/24.0;
+      if ($dx > $xmin) {
+	$tmax = $xmax;
+	$tmin = $tmax - $window/24.0;
+      } else {
+	$tmin = $xmin;
+	$tmax = $tmin + $window/24.0;
+      }
+    }
   }
 
-  # Set the desired plotting window
-  $ts->window($tmin, $tmax);
-  # Re-calculate bounds using the new plot window
-  ($xmin, $xmax, $ymin, $ymax ) = $ts->bounds;
+  # Store plotting window
+  $ts->window($tmin, $tmax); 
+  # Retrieve data limits within current window
+  ($xmin, $xmax, $ymin, $ymax) = $ts->bounds;
 
-  # Set min/max accordingly.
-  # Set xmin to the oldest time in the data set if xmin is calculated
-  # to be further in the past than tmin. This avoids largely empty plots
-  # when a stripchart has just been started.
-  $xmin = $tmin if ($xmin < $tmin); 
+  # Re-set plot limits
+  $xmin = $tmin;
   $xmax = $tmax;
 
   # Select the correct subsection
@@ -232,26 +265,21 @@ sub putData {
 
       # But make sure that we retrieve all the cache for replotting
       # from the specified x-range
-      ($xref, $yref) = $ts->data(xyarr => 1, outside => 1);
+#      ($xref, $yref) = $ts->data(xyarr => 1, outside => 1);
     }
   }
 
-  # Plotting attributes
-  my $linecol = $self->_colour_to_index($attr->linecol);
-  my $linestyle = $self->_style_to_index($attr->linestyle);
-  my $symcol = $self->_colour_to_index($attr->symcol);
-  my $symbol = $self->_sym_to_index($attr->symbol);
-  
   # Create the new AST plot object if we do not have one
   if (!defined $plt) {
     # Adjust plot limits to look nice
     if ($self->autoscale) {
       my $dy = $ymax - $ymin;
-      $ymin = $ymin - 0.1*$dy;
+      $ymin = $ymin - 0.1*$dy; # Expand by 10% of range above and below
       $ymax = $ymax + 0.1*$dy;
     } else {
-      ($ymin,$ymax) = $self->yscale;
+      ($ymin,$ymax) = $self->yscale; # Set ymin/max from Yscale attribute
     }
+    # Expand t-axis by 10% of window
     my $dx = $xmax - $xmin;
     $xmax = $xmax + 0.1*$dx;
 
@@ -264,7 +292,6 @@ sub putData {
     $self->astPlot( $plt );
   }
 
-
   # Register the correct plotting engine callbacks
   $self->_grfselect( $plt );
 
@@ -275,14 +302,21 @@ sub putData {
     my %cache = $self->astCache;
     foreach my $mon (keys %cache ) {
       unless ($mon eq $monid) {
-	# Retrieve cached data
-	my $tscache = $self->astCache( $mon );
-	my ($newxref, $newyref) = $tscache->data(xyarr => 1, outside => 1);
-	$plt->Set("colour(curves)","2");
-	$plt->Set("style(curves)", "1");
-	$plt->PolyCurve($newxref, $newyref);	
-	$plt->Set("colour(markers)","4");
-	$plt->Mark($symbol, $newxref, $newyref);
+        # Retrieve cached data
+        my $tscache = $self->astCache( $mon );
+        my ($newxref, $newyref) = $tscache->data(xyarr => 1, outside => 1);
+	# Retrieve plotting attributes
+	my %tsattr = %{ $self->attr($monid) };
+	my $tslcol = $self->_colour_to_index($tsattr{linecol});
+	my $tslstyle = $self->_style_to_index($tsattr{linestyle});
+	my $tsscol = $self->_colour_to_index($tsattr{symcol});
+	my $tssym = $self->_sym_to_index($tsattr{symbol});
+	# Replot data
+        $plt->Set("colour(curves)",$tslcol);
+        $plt->Set("style(curves)", $tslstyle);
+        $plt->PolyCurve($newxref, $newyref);
+        $plt->Set("colour(markers)",$tsscol);
+        $plt->Mark($tssym, $newxref, $newyref);
       }
     }
   }
@@ -290,6 +324,12 @@ sub putData {
 #  my $chan = new Starlink::AST::Channel( sink => sub { print "$_[0]\n"; } );
 #  $chan->Write( $plt );
 
+  # Plotting attributes
+  my $linecol = $self->_colour_to_index($attr->linecol);
+  my $linestyle = $self->_style_to_index($attr->linestyle);
+  my $symcol = $self->_colour_to_index($attr->symcol);
+  my $symbol = $self->_sym_to_index($attr->symbol);
+  
   # plot the data using the requested attributes
   $plt->Set("colour(curves)", $linecol);
   $plt->Set("style(curves)", $linestyle);

@@ -116,8 +116,10 @@ monitor.
 sub filename {
   my $self = shift;
   if (@_) {
-    $self->{SimpleFile} = shift;
-
+    my $datafile = shift;
+    $self->{SimpleFile} = $datafile;
+    # Check file exists
+    warnings::warnif("File '$datafile' does not exist") unless -e $datafile;
     # Read file to get number of columns
     $self->find_ncolumns;
   }

@@ -248,7 +248,9 @@ sub window {
       $self->{WINDOW} = $int;
     } elsif (scalar(@_) == 2) {
       my ($min, $max) = @_;
-      $self->{WINDOW} = new Number::Interval( Min => $min, Max => $max );
+      $self->{WINDOW} = new Number::Interval( Min => $min, Max => $max,
+					      IncMax => 1, IncMin => 1
+					    );
     } else {
       croak "Bizarre number of arguments to window() method";
     }

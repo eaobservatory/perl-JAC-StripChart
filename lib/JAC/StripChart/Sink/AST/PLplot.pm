@@ -50,8 +50,11 @@ Initialise the plot area for AST.
 =cut
 
 sub init {
+  my $self = shift;
   plvpor(0.15,0.85,0.15,0.85);
   plwind(0,1,0,1);
+
+  $self->SUPER::init(@_);
 
 }
 

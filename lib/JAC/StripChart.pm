@@ -34,6 +34,9 @@ use JAC::StripChart::Config;
 use vars qw/ $VERSION /;
 $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
 
+# stripchart poll rate in milliseconds
+use constant POLL_INTERVAL => 750;
+
 =head1 METHODS
 
 =head2 Constructors
@@ -336,7 +339,7 @@ sub MainLoop {
   if (!@e) {
     while (1) {
       $self->update;
-      sleep(1);
+      select(undef,undef,undef, POLL_INTERVAL / 1000 );
     }
   } elsif (scalar(@e) == 1) {
     $e[0]->configure_event( $self );
@@ -345,7 +348,7 @@ sub MainLoop {
     $_->configure_event( $self ) for @e;;
     while (1) {
       $_->update() for @e;
-      sleep(1);
+      select(undef,undef,undef, POLL_INTERVAL / 1000 );
     }
   }
   return;

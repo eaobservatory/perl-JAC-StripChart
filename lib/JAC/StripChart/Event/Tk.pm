@@ -28,6 +28,9 @@ use Carp;
 
 use Tk ();
 
+# make sure we have access to the poll rate
+use JAC::StripChart;
+
 use vars qw/ $VERSION /;
 $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
 
@@ -181,11 +184,12 @@ will run the update() method.
 sub tkupdate_chart {
   my $context = shift;
   my $st = shift;
-  $context->after( 1000,
+  $context->after( JAC::StripChart::POLL_INTERVAL,
 		   sub { $st->update();
 			 print "Updating...\n";
-			 $context->after(1000, [\&tkupdate_chart, 
-						$context, $st]);
+			 $context->after(JAC::StripChart::POLL_INTERVAL,
+					 [\&tkupdate_chart,
+					  $context, $st]);
 		       }
 		 );
 }

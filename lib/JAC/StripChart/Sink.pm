@@ -16,10 +16,11 @@ JAC::StripChart::Sink - Base class for all data sinks
 
 =head1 DESCRIPTION
 
-This class handles the display of strip charts using a specified plot device.
-This base class will not actually plot anything since it does not know how
-to draw lines. New data will be sent to STDOUT. The base class simply
-controls the parts of the class that are device independent.
+This class handles the display of strip charts using a specified plot
+device.  This base class will not actually plot anything since it does
+not know how to draw lines. New data will be sent to STDOUT. The base
+class simply controls the parts of the class that are device
+independent, such as the plot attributes.
 
 =cut
 
@@ -30,6 +31,7 @@ use warnings;
 use warnings::register;
 use Carp;
 
+use Scalar::Util qw/ looks_like_number /;
 use JAC::StripChart::Error;
 use JAC::StripChart::TimeMap;
 
@@ -192,8 +194,9 @@ sub growt {
 
 =item B<window>
 
-Size of the moving window for the strip chart, in hours. Only used
-if C<growt> is false.
+Size of the moving window for the strip chart, in hours. If C<growt>
+is false, this value is used as the default (minimum) width for the plot.
+Must be greater than 0.
 
 Sets the updated() flag on update.
 
@@ -202,7 +205,10 @@ Sets the updated() flag on update.
 sub window {
   my $self = shift;
   if (@_) {
-    $self->_set_and_check_update_flag( "Window", shift );
+    my $val = shift;
+    if ($val && looks_like_number($val) && $val > 0) {
+      $self->_set_and_check_update_flag( "Window", $val );
+    }
   }
   return $self->{Window};
 }
@@ -227,7 +233,7 @@ sub autoscale {
 =item B<yscale>
 
 The min and max limits for the Y axis. Only used if C<autoscale>
-is false.
+is false. Only accepts numbers.
 
   ($min, $max ) = $snk->yscale;
   $snk->yscale( $min, $max );
@@ -244,6 +250,8 @@ sub yscale {
     # need to see if we are updating
     for my $i ( 0 .. $#yl ) {
       $yl[$i] = 0 if !defined $yl[$i];
+      $yl[$i] = $self->{Yscale}->[$i]
+	unless looks_like_number($yl[$i]);
       if ($self->{Yscale}->[$i] != $yl[$i]) {
 	$self->updated( 1 );
 	last;
@@ -389,6 +397,7 @@ sub putData {
   my ($chartid, $monid, $attrs, @data ) = @_;
 
   print "# Data trigger for Chart $chartid Monitor $monid\n";
+  @data = $self->timemap->do_map( @data );
   print map { join("  \t", $_->[0],$_->[1] ), "\n"; }  @data;
 }
 
@@ -464,7 +473,7 @@ Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council.
+Copyright (C) 2004-2005 Particle Physics and Astronomy Research Council.
 All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under

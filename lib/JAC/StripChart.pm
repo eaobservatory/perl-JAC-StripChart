@@ -46,6 +46,8 @@ Create a new stripchart environment.
 
    $st = new JAC::StripChart( $cfgfile );
 
+Additional arguments will be forwarded to the config object.
+
 =cut
 
 sub new {
@@ -63,7 +65,7 @@ sub new {
 
 
   my $cfgfile = shift;
-  my $cfg = new JAC::StripChart::Config( $cfgfile );
+  my $cfg = new JAC::StripChart::Config( $cfgfile, @_ );
 
   $st->charts( $cfg->charts );
   $st->config( $cfg );
@@ -147,8 +149,11 @@ objects with the individual Chart objects.
 
   $st->init;
 
-Any arguments (as hash key/value pairs) are passed directly to the
-low-level device constructor. Unrecognized keys will be ignored.
+Any remaining arguments (as hash key/value pairs) are passed directly
+to the low-level device constructor. Unrecognized keys will be
+ignored.
+
+ $st->init( nxy => [2,1], context => $w );
 
 =cut
 
@@ -159,8 +164,6 @@ sub init {
   # First found out who wants what
   my %devlist;
   for my $c ($self->charts) {
-    my $cid = $c->chartid;
-
     # Get the sinks
     for my $s ($c->sinks) {
       my $class = $s->device_class;

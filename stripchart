@@ -24,6 +24,12 @@ The following options are supported:
 Name of the configuration file to use to configure the stripchart.
 By default the stripchart will use "chart.ini".
 
+=item B<-dev>
+
+By default, the device class is read from the configuration file.
+If this option is specified, all charts will be created using this
+device class.
+
 =item B<-help>
 
 Print help information.
@@ -51,9 +57,10 @@ use vars qw/ $DEBUG /;
 $DEBUG = 0;
 
 # Options
-my ($help, $man, $version, $cfgfile);
+my ($help, $man, $version, $cfgfile, $dev);
 my $status = GetOptions("help" => \$help,
                         "man" => \$man,
+			"dev=s" => \$dev,
                         "version" => \$version,
                         "cfg=s" => \$cfgfile,
                        );
@@ -71,10 +78,20 @@ if ($version) {
 # determine the configuration file whereabouts
 $cfgfile = 'chart.ini' unless $cfgfile;
 
-# Now create the stripchart
-my $st = new JAC::StripChart( $cfgfile );
+# Assume device class is AST::
+# do not check case
+my %init;
+if ($dev) {
+  my $c = $dev;
+  $c = "AST::$c" unless $c =~ /^AST/;
+  $init{output_class} = $c;
+}
 
-$st->init;
+
+# Now create the stripchart
+my $st = new JAC::StripChart( $cfgfile, %init);
+
+$st->init();
 $st->MainLoop;
 
 exit;

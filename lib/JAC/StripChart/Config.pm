@@ -9,13 +9,15 @@ JAC::StripChart::Config - Configure a stripchart
   use JAC::StripChart::Config;
 
   $cfg = new JAC::StripChart::Config( $file );
+  $cfg = new JAC::StripChart::Config( $file, output_class => 'AST::PGPLOT' );
 
   @charts = $cfg->charts();
 
 
 =head1 DESCRIPTION
 
-
+A stripchart configuration object. This class is used to provide
+startup configurations to the stripchart tool via a configuration file.
 
 =cut
 
@@ -43,6 +45,9 @@ my $CHART_PREFIX = "chart";
 
 =item B<new>
 
+Create a configuration object. All arguments are forwarded to
+the C<filename> method.
+
    $cfg = new JAC::StripChart::Config( $file );
    $cfg2 = $cfg->new( $file );
 
@@ -60,7 +65,7 @@ sub new {
 		  }, $class;
 
   if (@_) {
-    $cfg->filename( $_[0] );
+    $cfg->filename( @_ );
   }
 
   return $cfg;
@@ -75,6 +80,10 @@ sub new {
 =item B<filename>
 
 Name of the config file used to configure the stripchart.
+The read_config() method is invoked immediately and is
+forwarded additional arguments.
+
+  $cfg->filename( $cfgfile, %overrides );
 
 =cut
 
@@ -82,7 +91,7 @@ sub filename {
   my $self = shift;
   if (@_) {
     $self->{FileName} = shift;
-    $self->read_config();
+    $self->read_config(@_);
   }
   return $self->{FileName};
 }
@@ -136,12 +145,22 @@ sub nxy {
 
 Read and parse the config file specified in the C<filename> attribute.
 
-  $cfg->read_config;
+  $cfg->read_config();
+
+Some overrides can be supplied to allow the programmer the ability
+to supercede values in the configuration file.
+
+  $cfg->read_config( output_class => 'AST::PGPLOT' );
+
+The following overrides are supported:
+
+ o output_class: Override the output class specification
 
 =cut
 
 sub read_config {
   my $self = shift;
+  my %overrides = @_;
 
   # Get the filename
   my $fname = $self->filename;
@@ -221,10 +240,12 @@ sub read_config {
   print Dumper($self);
 
   # Get the name of the Sink class to be used. This is in global
-  # but defaults to ::Sink.
+  # but defaults to ::Sink. It can be overriden.
   my @sinks;
   my $snk_root = "JAC::StripChart::Sink";
-  if (exists $data{globals} && $data{globals}->{output_class}) {
+  if ($overrides{output_class}) {
+    push(@sinks, $snk_root . "::" . $overrides{output_class});
+  } elsif (exists $data{globals} && $data{globals}->{output_class}) {
     my @classes = $self->_to_array($data{globals}->{output_class});
     @sinks = map { $snk_root . "::" . $_ } @classes;
   } else {
@@ -505,7 +526,7 @@ Andy Gibb E<lt>agg@astro.ubc.caE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council and
+Copyright (C) 2004-2005 Particle Physics and Astronomy Research Council and
 the University of British Columbia. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under

@@ -73,19 +73,6 @@ sub _grfselect {
   return;
 }
 
-sub _colour_to_index {
-  my $self = shift;
-  return 2;
-}
-
-sub _sym_to_index {
-  return 1;
-}
-
-sub _style_to_index {
-  return 1;
-}
-
 =back
 
 =head1 AUTHOR

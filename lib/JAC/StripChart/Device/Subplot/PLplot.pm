@@ -117,6 +117,19 @@ sub select {
   return;
 }
 
+=item B<clear>
+
+Clear this device, ready for plotting.
+
+=cut
+
+sub clear {
+  my $self = shift;
+  $self->select;
+  plclear;
+}
+
+
 =back
 
 =head1 AUTHOR
@@ -125,7 +138,7 @@ Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council.
+Copyright (C) 2004-2005 Particle Physics and Astronomy Research Council.
 All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under

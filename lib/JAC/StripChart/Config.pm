@@ -356,27 +356,27 @@ sub read_config {
     }
   }
 
-  # Redefine the anon arrays as anon hashes to set up the attributes args
+  # Redefine the anon arrays as anon hashes to set up the attributes
+  # args. Using %tmphash makes it a little clearer what's going on
   for my $attrkey (keys %attrargs) {
-    my %tmphash;
-    %tmphash = ( ref($attrargs{$attrkey}) eq 'ARRAY' ? @{ $attrargs{$attrkey} } : $attrargs{$attrkey});
-#      print Dumper(\%tmphash);
+    my %tmphash = ( ref($attrargs{$attrkey}) eq 'ARRAY' ? @{ $attrargs{$attrkey} } : $attrargs{$attrkey});
     $attrargs{$attrkey} = \%tmphash;
-  }
-  print Dumper(%attrargs);
 
-#    %attrargs = %{ $attrs{$monid} };
-  foreach my $attrkey (keys %attrargs) {
     # Generate attributes object
     my $attrs = new JAC::StripChart::Chart::Attrs(%{ $attrargs{$attrkey} } );
+    # Retrieve monitor ID from $attrkey = second (& final) element in array
+    my ($chartid, $monidkey) = split(/_/,$attrkey);
+
     # Attach to relevant monitor
-    
-    print Dumper ($attrs);
-  }
-    # and associate the attributes with the monitor
-#    my @attrobj = map { $_->new( %attrargs ) } @s;
-#    print Dumper(@attrobj);
-#      $...->monattrs( $attrs );
+    for my $chart (@charts) {
+      $chart->monattrs( $monidkey => $attrs ) if ($chartid eq $chart->chartid) ;
+      # test by retrieving Attr object
+#      my $testobj = $chart->monattrs($monidkey);
+#      print Dumper($testobj);
+    }
+
+  } # end foreach
+
 }
 
 

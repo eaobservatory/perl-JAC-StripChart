@@ -289,7 +289,7 @@ sub putData {
   # Retrieve data within the plot window
   my ($xref, $yref);
   ($xref, $yref) = $ts->data(xyarr => 1, outside => 1);
-  my $npts = $ts->npts;
+  my $npts = $ts->npts( outside => 1 );
 #  print $monid." ".$npts ." ".scalar(@{$xref})."\n";
 #  print Dumper($xref);
 
@@ -354,15 +354,16 @@ sub putData {
       unless ($mon eq $monid) {
         # Retrieve cached data
         my $tscache = $self->astCache( $mon );
-        my ($xcache, $ycache) = $tscache->data(xyarr => 1, outside => 1);
-	my $ncachepts = (defined $xcache ? scalar(@{$xcache}) : 0);
+	my $ncachepts = $tscache->npts( outside => 1 );
 
 	# Retrieve plotting attributes
 	my $tsattr = $self->attr($mon);
+
 	# Replot data
 	if ($ncachepts > 0) {
 	  my $tsscol = $self->_colour_to_index($tsattr->symcol);
 	  my $tssym = $self->_sym_to_index($tsattr->symbol);
+	  my ($xcache, $ycache) = $tscache->data(xyarr => 1, outside => 1);
 	  $plt->Set("colour(markers)",$tsscol);
 	  $plt->Mark($tssym, $xcache, $ycache);
 	  if ($ncachepts > 1) {

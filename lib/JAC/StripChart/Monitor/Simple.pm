@@ -67,9 +67,15 @@ sub new {
 
   if (@_) {
     my %args = @_;
-    # loop over known important methods
-    for my $k (qw| monid filename tcol ycol tformat|) {
-      $mon->$k($args{$k}) if exists $args{$k};
+    # Set monitor ID
+    $mon->monid($args{monid});
+    # loop over other known methods
+    for my $k (qw| filename tcol ycol tformat|) {
+      if (exists $args{$k}) {
+	$mon->$k($args{$k});
+      } else {
+	throw JAC::StripChart::Error::BadConfig("Parameter '$k' not present for monitor '" . $mon->monid ."'");
+      }
     }
   }
 

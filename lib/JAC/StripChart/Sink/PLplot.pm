@@ -116,32 +116,19 @@ sub init {
     $npen = $maxpen;
   }
 
-  # We need to specify color for each pen [should use Attrs - but these will be CHART attrs, not MONITOR attrs]
-  my $colbox = 1;
-  my $collab = 3;
+  # Set basic plot colours - frame and labels
+  my $colbox = $self->_colour_to_index("red");
+  my $collab = $self->_colour_to_index("green");
 
+  # We need to specify color for each pen [should use Attrs - but these will be CHART attrs, not MONITOR attrs]
   # Obtain monitor parameters from Attrs object <- note these are MONITOR attrs
-  my (@colline, @colours);
+  my @colline;
   my @styline;
   for my $monid (keys %attrs) {
     my %monattrs = %{ $attrs{$monid} };
-    push ( @colours, $monattrs{"LineCol"} ); # First just store colours - convert them to something useful in a minute
+    push ( @colline, $self->_colour_to_index( $monattrs{"LineCol"} ) ); 
     push ( @styline, $self->_style_to_index( $monattrs{"LineStyle"} ) );
   }
-
-  # Now loop over all required colours and define them in terms of PLplot indices
-  my @knowncolours = qw( red yellow green aquamarine pink wheat grey brown blue BlueViolet cyan turquoise magenta salmon white );
-  for my $col (@colours) {
-    next if ($col=~/\d/); # Ignore colours already specified as indices
-
-    for my $j (0..scalar(@knowncolours)) {
-      next unless ($knowncolours[$j] eq $col);
-      push (@colours, $j);
-    }
-
-  }
-
-#  $self->_colour_to_index( $monattrs{"LineCol"} );
 
   # Set plot legends to the monitor key names
   my @legline = keys %attrs;
@@ -152,15 +139,15 @@ sub init {
   my %pen = map { $_ =>  $i++ } keys %attrs;
   $self->penid( %pen );
 
-  # pad
+  # Pad arrays with dummy values
   for $i (($#colline+1)..($maxpen-1)) {
-    $colline[$i] = 5;
+    $colline[$i] = 1;
     $styline[$i] = $colline[$i];
     $legline[$i] = '';
   }
 
-  # legend position
-  my $xlab = 0.7;
+  # legend position  
+  my $xlab = 0.65;
   my $ylab = 0.9;
 
   # Initial limits; these are rescaled by reading of data
@@ -185,6 +172,11 @@ sub init {
   } else {
     $acc = 0;
   }
+
+  # Ylabel
+
+  # Default char size is a bit too big - reduce to 60%
+  plschr(0,0.6);
 
   # now initialise the strip chart
   my $id = plstripc( "bcnst", "bcnstv", $tmin, $tmax,
@@ -253,17 +245,26 @@ Translate given colour to PLplot colour index
 sub _colour_to_index {
   my $self = shift;
   my $colour = shift;
-  my $cindex;
+  my $cindex = -1;
 
-  use Data::Dumper;
+  # Note the order of @knowncolours is set to match the PLplot index number
+  my @knowncolours = qw( red yellow green aquamarine pink wheat grey brown blue BlueViolet cyan turquoise magenta salmon white );
+
+  # Now examine other colours and convert known values to indices
+  for my $j (0..scalar(@knowncolours)) {
+    if ($knowncolours[$j] eq $colour) {
+      $cindex = $j + 1;
+      last;
+    } 
+  }
+
   # Colour index given
   if ($colour =~ /\d/) {
     throw JAC::StripChart::Error::BadConfig("Colour index does not exist - must lie between 1 and 15") if ($colour > 15 || $colour < 1);
     $cindex = $colour;
   } else {
-    my $rgb = new Color::Rgb();
-    print Dumper(keys %{$rgb});
-    
+    # Return error if $cindex not set
+    throw JAC::StripChart::Error::BadConfig("Colour not recognized") if ($cindex == -1);
   }
 
   return $cindex;

@@ -23,13 +23,23 @@ use warnings;
 use warnings::register;
 use Carp;
 
+use JCMT::Tau::WVM;
 use DateTime;
 use DateTime::Format::ISO8601;
+use DateTime::TimeZone;
 use JAC::StripChart::Error;
 
-use vars qw/ $VERSION /;
+use vars qw/ $VERSION $USE_SIMPLE /;
 $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
 
+$USE_SIMPLE = 0;
+
+# Cache UTC timezone until JCMT::Tau::WVM module can be taught
+# to retain the DateTime object
+my $UTC;
+BEGIN {
+  $UTC = new DateTime::TimeZone( name => 'UTC' );
+}
 
 =head1 METHODS
 
@@ -50,6 +60,7 @@ sub new {
   # Create object
   my $mon = bless {
                    MonID => '',
+		   LastRead => {},
                   }, $class;
 
   if (@_) {
@@ -85,6 +96,30 @@ sub monid {
   return $self->{MonID};
 }
 
+=item B<last_read>
+
+Date WVM file was last read for a given chart id. C<undef> indicates
+that we should start from the UT start.
+
+  $last = $mon->last_read( $chartid );
+  $mon->last_read( $chartid, $dt );
+
+Stored as a DateTime object for convenience.
+
+=cut
+
+sub last_read {
+  my $self = shift;
+  my $chartid = shift;
+  croak "Must define chartID to obtain last read status\n"
+    unless defined $chartid;
+
+  if (@_) {
+    $self->{LastRead}->{$chartid} = shift;
+  }
+  return $self->{LastRead}->{$chartid};
+}
+
 =back
 
 =head1 General Methods
@@ -110,26 +145,65 @@ element array. First element is the time in MJD.
 
 sub getData {
   my $self = shift;
+  my $id = shift;
 
-  # simple technique first. Just read the value from the single
-  # line file that has the most recent data point. We will miss points
-  # but for testing it doesn't matter. Correct solution is to read
-  # into a JCMT::Tau::WVM object
-  my $file = "/jcmtdata/raw/wvm/wvm.dat";
+  # Simple read current value only
+  if ($USE_SIMPLE) {
+    # simple technique first. Just read the value from the single
+    # line file that has the most recent data point. We will miss points
+    # but for testing it doesn't matter. Correct solution is to read
+    # into a JCMT::Tau::WVM object
+    my $file = "/jcmtdata/raw/wvm/wvm.dat";
 
-  # no data available if no file
-  open my $fh, "<$file" or return ();
+    # no data available if no file
+    open my $fh, "<$file" or return ();
 
-  my $line = <$fh>;
-  return () unless $line;
-  my ($ut, $tau) = split(/\s+/,$line);
-  return () unless defined $tau;
-  return () unless $ut;
+    my $line = <$fh>;
+    return () unless $line;
+    my ($ut, $tau) = split(/\s+/,$line);
+    return () unless defined $tau;
+    return () unless $ut;
 
-  my $dt = eval { DateTime::Format::ISO8601->parse_datetime( $ut ); };
-  return () unless defined $dt;
+    my $dt = eval { DateTime::Format::ISO8601->parse_datetime( $ut ); };
+    return () unless defined $dt;
 
-  return [ $dt->mjd, $tau];
+    return [ $dt->mjd, $tau];
+
+  } else {
+    # Proper system
+
+    # get time last read (for this chart)
+    my $last = $self->last_read($id);
+
+    # if undefined, start at the day boundary
+    my $now = DateTime->now( time_zone => $UTC );
+    if (!defined $last) {
+      $last = DateTime->new( year => $now->year,
+			     month => $now->month,
+			     day => $now->day,
+			     time_zone => $UTC,
+			   );
+    }
+
+    # Read the WVM
+    my $wvm = new JCMT::Tau::WVM( Start_Time => $last,
+				  End_Time => $now,
+				);
+
+    $self->last_read( $id, $now );
+
+    return () unless defined $wvm;
+
+    my $data = $wvm->data;
+    my @data;
+    for my $w (sort keys %$data) {
+      my $mjd = DateTime->from_epoch( epoch => $w, time_zone => $UTC )->mjd;
+      push(@data, [ $mjd, $data->{$w}]);
+    }
+
+    return @data;
+  }
+
 }
 
 =back

@@ -25,6 +25,8 @@ use Carp;
 use JAC::StripChart::Error;
 use JAC::StripChart::Monitor::ORACIndexFile;
 
+use JCMT::Tau;
+
 use vars qw/ $VERSION /;
 $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
 
@@ -48,6 +50,7 @@ Takes a hash argument with keys:
   filter    => Filter parameters for valid data.
                Reference to a hash containing valid column names
                as keys.
+  cvtsub    => name of a subroutine to call to process data
 
 =cut
 
@@ -174,6 +177,21 @@ sub filter {
   return %{ $self->{Filter} };
 }
 
+=item B<cvtsub>
+
+Name of the subroutine to be called to post-process data returned by the
+monitor before it is returned to the plot system.
+
+=cut
+
+sub cvtsub {
+  my $self = shift;
+  if (@_) {
+    $self->{CVTSUB} = shift;
+  }
+  return $self->{CVTSUB};
+}
+
 =back
 
 =head1 General Methods
@@ -198,8 +216,61 @@ element array. First element is the time in MJD.
 sub getData {
   my $self = shift;
   my $id = shift;
-  return $self->index->getData( $id, $self->column, $self->filter );
+  my @data = $self->index->getData( $id, $self->column, $self->filter );
+
+  # conversion
+  my $cvtsub = $self->cvtsub;
+  return @data unless $cvtsub;
+
+  # Prepend package name for security
+  $cvtsub = 'JAC::StripChart::Monitor::ORACIndex::CVTSUB' ."::$cvtsub";
+
+  # test it
+  my $val = eval "$cvtsub();";
+  return () if $@;
+
+  # process the data
+  for my $d (@data) {
+    my $val = eval "$cvtsub( ". $d->[1] ." );";
+    $d->[1] = $val if defined $val;
+  }
+
+  return @data;
 }
+
+=back
+
+=head2 Conversion Subroutines
+
+The following subroutines can be specified in the configuration
+file to force the data returned by the monitor to be processed before
+it is plotted.
+
+Currently, the conversion is not taken into account when determining
+the unique monitor name so if two monitors are configured identically
+except that one is converting and the other isn't they will steal each
+others data. This will be fixed if it becomes a problem.
+
+=cut
+
+# Private package namespace
+package JAC::StripChart::Monitor::ORACIndex::CVTSUB;
+
+=over 4
+
+=item B<skydip850_to_225>
+
+Used to convert 850 skydip tau to 225 GHz tau.
+
+=cut
+
+sub skydip850_to_225 {
+  my $input = shift;
+  return unless defined $input;
+  my ($tau, $status) = JCMT::Tau::get_tau( 'CSO', '850W', $input);
+  return ($status == 0 ? $tau : undef );
+}
+
 
 =back
 

@@ -27,9 +27,6 @@ use Carp;
 
 use JAC::StripChart::Error;
 use JAC::StripChart::Chart;
-use JAC::StripChart::Sink::AST::PGPLOT;
-use JAC::StripChart::Sink::AST::PLplot;
-use JAC::StripChart::Sink::PLplot;
 
 use Config::IniFiles;
 
@@ -215,6 +212,24 @@ sub read_config {
   print "NX = $nx   NY = $ny \n";
   print Dumper($self);
 
+  # Get the name of the Sink class to be used. This is in global
+  # but defaults to ::Sink.
+  my @sinks;
+  my $snk_root = "JAC::StripChart::Sink";
+  if (exists $data{globals} && $data{globals}->{output_class}) {
+    my @classes = split(/,/, $data{globals}->{output_class} );
+    @sinks = map { $snk_root . "::" . $_ } @classes;
+  } else {
+    push(@sinks, $snk_root );
+  }
+
+  # preload all the requested Sink classes
+  for my $class (@sinks) {
+    eval "use $class;";
+    JAC::StripChart::Error::BadConfig->throw("Attempt to use data sink  of class $class except that class could not be loaded: $@") if $@;
+  }
+
+
   # Read all the chart information
   my @charts; # Chart objects
   my %cmon;  # Chart monitor id lookup
@@ -239,9 +254,7 @@ sub read_config {
     push(@charts, new JAC::StripChart::Chart( chartid => $chartid));
     $cmon{$chartid} = \@thischart;
 
-    # Currently each chart has one data sink.
-    # We hardwire the class for this at the moment as a simplification
-    # In the future each chart could have a list of sink classes
+    # Read the sink options from the chart
     my %plotdefn;
     for my $par ( qw| autoscale yscale growt window | ) {
       next unless exists $data{$chartid}->{$par};
@@ -251,9 +264,10 @@ sub read_config {
       $plotdefn{$par} = [ split(/,/, $plotdefn{$par}) ]
 	if $plotdefn{$par} =~ /,/;
     }
-    my $snk = new JAC::StripChart::Sink::PLplot( %plotdefn );
-#    my $snk = new JAC::StripChart::Sink::AST::PLplot( %plotdefn );
-    $charts[-1]->sinks( $snk );
+
+    # and associate the sinks with the chart
+    my @snkobj = map { $_->new( %plotdefn ) } @sinks;
+    $charts[-1]->sinks( @snkobj );
   }
 
 
@@ -317,14 +331,14 @@ The file format for StripChart configuration is based on the INI
 file format.
 
 Global parameters for all plots can be set in the "globals" section.
-Currently only one plot driver can be used for all the stripcharts
-so the single plotting window must be segmented in some manner.
-
+Currently, it is assumed that all plots should appear on all specified
+plot devices. This is a simplification that is not present in the 
+strip chart system itself.
 
   [globals]
   nx=10
   ny=2
-  plot_device=AST::PGPLOT
+  output_class=AST::PGPLOT,PLplot
 
 Each chart is configured and data sources specified.
 
@@ -342,16 +356,6 @@ Each chart is configured and data sources specified.
   growt=1
   window=4800
   data=fcf850,fcf850db,fcf450
-
-Output devices can be configured independently: [not implemented]
-
-  [location1]
-  driver=PGPLOT
-  position=1
-
-  [location2]
-  driver=KST
-  position=2
 
 Data sources are specified in their own sections. The labels
 are used by charts.

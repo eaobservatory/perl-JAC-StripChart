@@ -177,7 +177,7 @@ sub init {
   # as the reference day. All future points will have that day
   # subtracted
   my $tmin = 0;
-  my $tmax = 0.2; # 0.01 day - start off small and grow
+  my $tmax = 0.01; # 0.01 day - start off small and grow
   my $tjump = 0.2; # Grow t-axis by 10% each time autoscale is necessary
 
   # Determine if autoscale needed. Autoscale = y if result is non zero.

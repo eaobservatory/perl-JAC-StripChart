@@ -217,7 +217,7 @@ sub data {
   # Store the outside values if required (this is useful for plotting lines)
   # but not if the lower/upper level of the window is exactly matched
   # by the first/last data point
-  if ($opts{outside}) {
+  if ($opts{outside} && defined $first) {
 
     # get the current extrema
     my $dtmin = $data[0]->[0];

@@ -171,62 +171,6 @@ sub _style_to_index {
   return $stindex;
 }
 
-=item B<_sym_to_index>
-
-Translate given plot symbol to PLplot symbol index
-
-  $self->_sym_to_index( $style );
-
-For now, only support basic symbols (circle, square etc). If symbol
-index is given directly, then check for valid value and set it to the
-given or default value.
-
-PLplot supports specifying any Hershey symbol number by default.
-
-=cut
-
-sub _sym_to_index {
-  my $self = shift;
-  my $sym = shift;
-  my $symindex = 1;
-
-  return;
-
-  # Prefix with `f' to get filled versions
-  my %knownsymbols = ( square => '841',
-                       dot => '729',
-                       plus => '845',
-                       asterisk => '847',
-                       circle => '840',
-                       cross => '846',
-                       times => '846',
-                       x => '846',
-                       triangle => '842',
-                       diamond => '843',
-                       star => '844',
-                       fcircle => '850',
-                       fsquare => '851',
-                       ftriangle => '852',
-                       fstar => '856' );
-
-  if ($sym =~ /\d/) {
-    throw JAC::StripChart::Error::BadConfig("Symbol index not defined ")
-      if ($sym > 2932 && $sym < 255);
-    $symindex = $sym;
-  } elsif ($sym =~ /[a-z]/) {
-    foreach my $symkey (keys %knownsymbols) {
-      $symindex = $knownsymbols{$symkey} if ($symkey eq $sym);
-    }
-  }
-
-  if ($symindex == 1) {
-    warnings::warnif(" Unknown symbol, '$sym': setting to default (+)");
-    $symindex = 845;
-  }
-
-  return $symindex;
-}
-
 
 =back
 

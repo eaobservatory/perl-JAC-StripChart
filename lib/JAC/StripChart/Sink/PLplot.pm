@@ -250,18 +250,18 @@ sub _colour_to_index {
   # Note the order of @knowncolours is set to match the PLplot index number
   my @knowncolours = qw( red yellow green aquamarine pink wheat grey brown blue BlueViolet cyan turquoise magenta salmon white );
 
-  # Now examine other colours and convert known values to indices
-  for my $j (0..scalar(@knowncolours)) {
-    if ($knowncolours[$j] eq $colour) {
-      $cindex = $j + 1;
-      last;
-    } 
-  }
-
   # Colour index given
   if ($colour =~ /\d/) {
     throw JAC::StripChart::Error::BadConfig("Colour index does not exist - must lie between 1 and 15") if ($colour > 15 || $colour < 1);
     $cindex = $colour;
+  } elsif ($colour =~ /[a-z]/) {
+    # Now examine other colours and convert known values to indices
+    for my $j (0..scalar(@knowncolours)) {
+      if ($knowncolours[$j] eq $colour) {
+	$cindex = $j + 1;
+	last;
+      } 
+    }
   } else {
     # Return error if $cindex not set
     throw JAC::StripChart::Error::BadConfig("Colour not recognized") if ($cindex == -1);

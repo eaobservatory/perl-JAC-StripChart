@@ -119,8 +119,8 @@ sub indexfile {
   if (@_) {
     $self->{SimpleFile} = shift;
 
-    # Read file to get no of columns
-    $self->readfile;    
+    # Read file to get number of columns
+    $self->get_columns;    
 #    $self->index( $self->{SimpleFile}) ;
   }
   return $self->{SimpleFile};
@@ -179,22 +179,17 @@ sub _monitor_posn {
 }
 
 
-=head1 General Methods
+=item B<get_columns>
 
-=over 4
+Reads the input file, and returns the number of columns.
 
-=item B<readfile>
+  $index->get_columns; 
 
-Reads the index file, determines the number of columns and checks if
-the data in the file look like numbers.
-
-  $index->readfile; 
-
-Croaks if file does not exist or if the data do not look like numbers.
+Croaks if file does not exist.
 
 =cut
 
-sub readfile {
+sub get_columns {
 
   my $self = shift;
 
@@ -203,13 +198,13 @@ sub readfile {
 
   # Look for index file
   my $file = $self->indexfile;
-  return unless (-e $file);
+  throw JAC::StripChart::Error::FileNotFound("Simple data file $file does not exist")
+    unless (-e $file);
 
   my $handle = new IO::File "< $file";
   my $ncols = undef;
 
   if (defined $handle) {
-
     foreach my $line (<$handle>) {
       next if $line =~ /^\s*#/; # Ignore lines beginning with # or *
       $line =~ s/^\s+//g;	# zap leading blanks
@@ -217,20 +212,19 @@ sub readfile {
       $ncols = $#data + 1 if (!$ncols);  # Set the number of columns
       last if $ncols; # Don't need to read any more once $ncols is set
     }
-
   } else {
     croak("Couldn't open index file $file : $!");
   }
 
   $self->{Ncols} = $ncols;
-  return;
+  return $self->{Ncols};
 
 }
 
 =item B<last_read>
 
-Time the index file was last read. This is used to determine whether
-the index file should be re-read.
+Time the data file was last read. This is used to determine whether
+the data file should be re-read.
 
 Relies on the object being based on a hash.
 
@@ -242,50 +236,9 @@ sub last_read {
   return $self->{LastRead};
 }
 
-=item B<readsimple>
+=head1 General Methods
 
-A method for returning the two columns of data of interest. Checks
-if the columns exist first.
-
-  @data = $self->readsimple( $tcol, $ycol, $id, $oldest);
-
-
-=cut
-
-sub readsimple {
-  my $self = shift;
-
-# Fail if less than 5 parameters are present
-  my $nparams = 5;
-  my $nfound = $#_ + 1;
-  throw JAC::StripChart::Error::BadArgs("Incorrect number of parameters supplied in call to readsimple (need $nparams, found $nfound)")
-    if ($nfound <=> $nparams);
-  my ($id, $tcol, $ycol, $tframe, $oldest) = @_;
-
-  # Check that $tcol and $ycol exist
-  warnings::warnif("Unable to plot data for $id because requested T column is not present in file")
-    if ($self->{Ncols} < $tcol);
-  warnings::warnif("Unable to plot data for $id because requested Y column is not present in file")
-    if ($self->{Ncols} < $ycol );
-
-  my $file = $self->indexfile;
-  my $handle = new IO::File "< $file";
-  my @plotdata;
-
-  # Read successive lines from file
-  while (my $line = <$handle>) {
-    next if $line =~ /^\#/; # Skip lines beginning with a #
-    $line =~ s/^\s+//g;     # Delete leading blanks
-    my @data = split(/\s+/,$line);
-    next if $data[$tcol-1] < $oldest;
-#    # Convert time data to ORACTIME
-#    my $tdata = convert_to_oractime($data[$tcol-1], $tframe);
-#    push (@plotdata, [ $tdata, $data[$ycol-1] ]);
-    push (@plotdata, [ $data[$tcol-1], $data[$ycol-1] ]);
-  }
-
-  return @plotdata;
-}
+=over 4
 
 =item B<getData>
 
@@ -311,6 +264,12 @@ sub getData {
   throw JAC::StripChart::Error::BadArgs("Incorrect number of parameters supplied in call to getData (need $nparams, found $nfound)")
     if ($nfound <=> $nparams);
   my ($id, $tcol, $ycol, $tframe) = @_;
+
+  # Check that $tcol and $ycol exist
+  warnings::warnif("Unable to plot data for $id because requested T column is not present in file")
+    if ($self->{Ncols} < $tcol);
+  warnings::warnif("Unable to plot data for $id because requested Y column is not present in file")
+    if ($self->{Ncols} < $ycol );
 
   # Check for different columns!
   if ($tcol == $ycol) {
@@ -345,6 +304,44 @@ sub getData {
 #return @cache;
 }
 
+=item B<readsimple>
+
+A method for returning the two columns of data of interest. 
+
+  @data = $self->readsimple( $tcol, $ycol, $id, $tframe, $oldest);
+
+=cut
+
+sub readsimple {
+  my $self = shift;
+
+# Fail if less than 5 parameters are present
+  my $nparams = 5;
+  my $nfound = $#_ + 1;
+  throw JAC::StripChart::Error::BadArgs("Incorrect number of parameters supplied in call to readsimple (need $nparams, found $nfound)")
+    if ($nfound <=> $nparams);
+  my ($id, $tcol, $ycol, $tframe, $oldest) = @_;
+
+  my $file = $self->indexfile;
+  return unless (-e $file);
+  my $handle = new IO::File "< $file";
+  my @plotdata;
+
+  # Read successive lines from file
+  while (my $line = <$handle>) {
+    next if $line =~ /^\#/; # Skip lines beginning with a #
+    $line =~ s/^\s+//g;     # Delete leading blanks
+    my @data = split(/\s+/,$line);
+    next if $data[$tcol-1] < $oldest;
+#    # Convert time data to ORACTIME
+#    my $tdata = convert_to_oractime($data[$tcol-1], $tframe);
+#    push (@plotdata, [ $tdata, $data[$ycol-1] ]);
+    push (@plotdata, [ $data[$tcol-1], $data[$ycol-1] ]);
+  }
+
+  return @plotdata;
+}
+
 =item B<oldest_monpos>
 
 Determine the oldest value for monpos for caching plot data.
@@ -376,7 +373,6 @@ sub _genkey {
 =back
 
 =head2 Class Method
-
 
 =over 4
 
@@ -448,10 +444,6 @@ PARTICULAR PURPOSE. See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 this program; if not, write to the Free Software Foundation, Inc., 59 Temple
 Place,Suite 330, Boston, MA  02111-1307, USA
-
-=head1 SEE ALSO
-
-L<JAC::StripChart::Monitor::Simple>
 
 =cut
 

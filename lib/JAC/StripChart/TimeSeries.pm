@@ -122,16 +122,26 @@ sub add_data {
 
   # It is importance that we remove duplicates by overwriting the old
   # values with the new. The easiest way to do this is
-  # to use a hash (although not the most memory efficient for a
-  # large time series). In order to prevent unnecessary hash creation
-  # and resorting we first sort the input data and if the oldest new
-  # point is newer than the newest old point we simply push the new
-  # data onto the old without resorting to a hash
+  # to use a hash (although not the most memory or speed efficient for a
+  # large time series).
+
+  # In order to prevent unnecessary hash creation and resorting we
+  # first sort the input data and if the oldest new point is newer
+  # than the newest old point we simply push the new data onto the old
+  # without resorting to a hash. We then do a further optimization of
+  # adjusting the bounds cache simply by looking at the new data.
+
+  # If it was important, we could do a similar optimization for the
+  # case where all the data are older than the earliest data point.
+  # This is left as an exercise for the user that wants to run time
+  # backwards....
+
   my @newdata = sort { $a->[0] <=> $b->[0] } @_;
 
   # also just push if we do not have any data yet
   my $newer;
   if ( !@{$self->{DATA}} || $newdata[0]->[0] > $self->{DATA}->[-1]->[0] ) {
+
     # indicate that we only have new data
     $newer = 1;
 
@@ -144,7 +154,8 @@ sub add_data {
 
     # since the data are all newer we can calculate the new bounds
     # simply by looking at the new data and the cached bounds.
-    # only do this if we have a precalculated cache
+    # only do this if we have a precalculated cache, since otherwise
+    # we are not actually saving anything
     my @cache = $self->bounds_cache();
     if (@cache) {
       $cache[1] = $newdata[-1]->[0];
@@ -154,6 +165,21 @@ sub add_data {
       $cache[3] = $nmax if $nmax > $cache[3];
       $self->bounds_cache( \@cache );
     }
+  } elsif ($newdata[0]->[0] == $self->{DATA}->[-1]->[0] ) {
+    # The new data overwrite the last data in the list. In this
+    # case we can not easily recaulate the bounds unless we know that
+    # the new Y bounds are greater than and less than the last number
+    # in the old data set and the bounds of the previous data set. For
+    # now we push on the new data and clear the cache
+
+    # remove the last point in the old data
+    pop(@{$self->{DATA}});
+
+    # filter out undef values in the new data
+    @newdata = grep { defined $_->[1] } @newdata;
+
+    # and store the new data
+    push( @{ $self->{DATA} }, @newdata );
 
   } else {
     # the new points were within the old

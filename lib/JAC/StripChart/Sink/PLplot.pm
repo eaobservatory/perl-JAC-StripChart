@@ -282,9 +282,10 @@ sub _colour_to_index {
   my $self = shift;
   my $colour = shift;
   my $cindex = -1;
-
+  $colour = lc($colour);
+  
   # Note the order of @knowncolours is set to match the PLplot index number
-  my @knowncolours = qw( red yellow green aquamarine pink wheat grey brown blue BlueViolet cyan turquoise magenta salmon white );
+  my @knowncolours = qw( red yellow green aquamarine pink wheat grey brown blue blueviolet cyan turquoise magenta salmon white );
 
   # Colour index given
   if ($colour =~ /\d/) {

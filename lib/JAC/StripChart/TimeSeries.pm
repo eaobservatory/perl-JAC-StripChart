@@ -204,9 +204,11 @@ Retrieves the data that lies within the currently specified
 window. Assumes the data are already sorted into time order.
 
  @data = $ts->data;
+ $ref  = $ts->data;
 
 By default, returns only those points within the window and data are
-returned as a list of references to arrays of (t,y) pairs.
+returned as a list of references to arrays of (t,y) pairs. Returns a
+reference to an array in list context.
 
 Hash options can be used to control the results:
 
@@ -243,8 +245,8 @@ sub data {
   ($min,$max) = $int->minmax() if defined $int;
 
   # Find the index
-  my $first = $self->_find_index( 'min', $alldata, $int->min );
-  my $last  = $self->_find_index( 'max', $alldata, $int->max, $first );
+  my $first = $self->_find_index( 'min', $alldata, $min );
+  my $last  = $self->_find_index( 'max', $alldata, $max, $first );
 
   # deal with "outside"
   if ($opts{outside}) {
@@ -267,7 +269,7 @@ sub data {
     return (\@tdata, \@ydata);
   }
 
-  return @data;
+  return (wantarray ? @data : \@data);
 }
 
 =item B<window>
@@ -484,7 +486,7 @@ sub npts {
   if ($inopts{full}) {
     $data = $self->alldata();
   } else {
-    ($data, my $ydata) = $self->data(xyarr => 1, %opts);
+    $data = $self->data( %opts );
   }
 
   my $npts = ( defined $data ? scalar( @{ $data } ) : 0 );

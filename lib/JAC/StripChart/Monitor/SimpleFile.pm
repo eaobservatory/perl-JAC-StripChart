@@ -83,7 +83,8 @@ sub new {
   my $mon = bless {
 		   SimpleFile => undef,
 		   MonPos => {},
-		   LastRead => 0,
+#		   LastRead => 0,
+		   LastRead => {},
 		   Ncols => undef,
 		  }, $class;
 
@@ -225,14 +226,35 @@ sub find_ncolumns {
 Time the data file was last read (using the epoch seconds). This is
 used to determine whether the data file should be re-read.
 
-  $last_read = $sf->last_read;
+Valid keys are derived using the C<_genkey> method.
+
+  $i->_last_read( $key, $newval );
+  $curval = $i->_last_read( $key );
+  %allvals = $i->_last_read();
+
+In the second example, 0 is returned rather than undef if no
+key is present.
+#  $last_read = $sf->last_read;
 
 =cut
 
 sub last_read {
+#  my $self = shift;
+#  if (@_) { $self->{LastRead} = shift; }
+#  return $self->{LastRead};
   my $self = shift;
-  if (@_) { $self->{LastRead} = shift; }
-  return $self->{LastRead};
+  if (@_) {
+    my $key = shift;
+    if (@_) {
+      $self->{LastRead}->{$key} = shift;
+    } else {
+      my $curval = $self->{LastRead}->{$key};
+      return (defined $curval ? $curval : 0);
+    }
+  } else {
+    return %{ $self->{LastRead} };
+  }
+
 }
 
 =head1 General Methods
@@ -286,34 +308,29 @@ sub getData {
 
   # Read (get) the stored reference time for this chart
   my $reftime = $self->_monitor_posn( $key );
-#  print $reftime;
 
-#  return if ($self->last_read > $self->last_write($self->filename));
-  return if ($reftime > $self->last_write($self->filename));
+  return if ($self->last_read($key) > $self->last_write($self->filename));
 
   if (!$oldest) {
     $oldest = $reftime ;
   } else {
     $oldest = $self->oldest_monpos;
   }
-#  print $id, $oldest ."\n";
 
   # Read new data and store in @newdata
-  my @newdata = $self->readsimple($id, $tcol, $ycol, $tformat, $oldest, $key);
-
-  # Set the reference time to a new value - note time is in MJD!
-#  $self->_monitor_posn( $key, $newdata[-1]->[0])
-#    if @newdata;
+  my @newdata = $self->readsimple($id, $tcol, $ycol, $tformat, $key);
 
   # return the answer (time is in MJD)
   return map { [ $_->[0], $_->[1] ] } @newdata;
 }
 
+=head2 B<Internal methods>
+
 =item B<readsimple>
 
 A method for returning the two columns of data of interest.
 
-  @data = $self->readsimple( $tcol, $ycol, $id, $tformat, $oldest);
+  @data = $self->readsimple( $tcol, $ycol, $id, $tformat, $key);
 
 where $tcol is the index of the column representing time, $ycol
 is the index of the column, etc
@@ -323,9 +340,9 @@ is the index of the column, etc
 sub readsimple {
   my $self = shift;
 
-  # Fail if less than 6 parameters are present
-  $self->_checkparams( 6, \@_ );
-  my ($id, $tcol, $ycol, $tformat, $oldest, $key) = @_;
+  # Fail if less than 5 parameters are present
+  $self->_checkparams( 5, \@_ );
+  my ($id, $tcol, $ycol, $tformat, $key) = @_;
 
   # Get the filename and see if it is present
   my $file = $self->filename;
@@ -345,16 +362,16 @@ sub readsimple {
 
     # Convert time data to MJD
     my $tdata = $self->_convert_to_mjd($data[$tcol-1], $tformat);
-    # String comparison of time in case time format includes non digits.
-    next if $tdata lt $oldest;
+    next if $tdata <= $self->_convert_to_mjd($oldest, $tformat);
+    print $tdata."   ".$oldest."\n";
     push (@plotdata, [ $tdata, $data[$ycol-1] ]);
-#    push (@plotdata, [ $data[$tcol-1], $data[$ycol-1] ]);
+# Set monitor position to last line in file
     $self->_monitor_posn( $key, $data[$tcol-1]);
   }
 
   close($handle);
   # update the last_read time
-  $self->last_read( time() );
+  $self->last_read( $key, time() );
 
   return @plotdata;
 }
@@ -429,8 +446,14 @@ sub _convert_to_mjd {
   my ($day, $month, $year, $hour, $minute, $seconds, 
       $separator, $frac, $mjd);
 
+  # Return if zero
+  if ($datetime == 0) {
+    $mjd = 0;
+    return $mjd;
+  }
+
   # Find separator
-  ($separator = $datetime) =~ s/[\d+\.]//g;
+    ($separator = $datetime) =~ s/[\d+\.]//g;
 
   # ORACTIME should not have a separator...
   if ($tformat =~ /ora/i && $separator ne "") {

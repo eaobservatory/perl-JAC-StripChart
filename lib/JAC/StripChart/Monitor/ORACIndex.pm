@@ -292,6 +292,19 @@ sub skydip850_to_225 {
 }
 
 
+=item B<skydip450_to_225>
+
+Used to convert 450 skydip tau to 225 GHz tau.
+
+=cut
+
+sub skydip450_to_225 {
+  my $input = shift;
+  return unless defined $input;
+  my ($tau, $status) = JCMT::Tau::get_tau( 'CSO', '450W', $input);
+  return ($status == 0 ? $tau : undef );
+}
+
 =back
 
 =head1 AUTHOR

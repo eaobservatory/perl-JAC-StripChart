@@ -24,76 +24,13 @@ use Carp;
 use Graphics::PLplot;
 use JAC::StripChart::Error;
 
+use base qw/ JAC::StripChart::Device::Subplot /;
+
 use vars qw/ $VERSION /;
 $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
 
 =head1 METHODS
 
-=head2 Constructors
-
-=over 4
-
-=item B<new>
-
-Create a new PLplot subplot.
-
-  $sub = new JAC::StripChart::Device::PLplot::Subplot( $dev, 4 );
-
-The first argument must be a JAC::StripChart::Device::PLplot object.
-The second argument must be a panel number on the display.
-
-=cut
-
-sub new {
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-
-  my ($device, $panel) = @_;
-
-  my $sub = bless {
-		   DEVICE => undef,
-		   PANEL => 0,
-		  }, $class;
-
-
-  # store the parameters
-  $sub->device( $device );
-  $sub->panel( $panel );
-
-  return $sub;
-}
-
-=back
-
-=head2 Accessor Methods
-
-=over 4
-
-=item B<device>
-
-The associated plot device object.
-
-=cut
-
-sub device {
-  my $self = shift;
-  if (@_) { $self->{DEVICE} = shift; }
-  return $self->{DEVICE};
-}
-
-=item B<panel>
-
-The panel number within the plot device.
-
-=cut
-
-sub panel {
-  my $self = shift;
-  if (@_) { $self->{PANEL} = shift; }
-  return $self->{PANEL};
-}
-
-=back
 
 =head2 General Methods
 

@@ -24,76 +24,12 @@ use Carp;
 use PGPLOT;
 use JAC::StripChart::Error;
 
+use base qw/ JAC::StripChart::Device::Subplot /;
+
 use vars qw/ $VERSION /;
 $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
 
 =head1 METHODS
-
-=head2 Constructors
-
-=over 4
-
-=item B<new>
-
-Create a new PGPLOT subplot.
-
-  $sub = new JAC::StripChart::Device::PGPLOT::Subplot( $dev, 4 );
-
-The first argument must be a JAC::StripChart::Device::PGPLOT object.
-The second argument must be a panel number on the display.
-
-=cut
-
-sub new {
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-
-  my ($device, $panel) = @_;
-
-  my $sub = bless {
-		   DEVICE => undef,
-		   PANEL => 0,
-		  }, $class;
-
-
-  # store the parameters
-  $sub->device( $device );
-  $sub->panel( $panel );
-
-  return $sub;
-}
-
-=back
-
-=head2 Accessor Methods
-
-=over 4
-
-=item B<device>
-
-The associated plot device object.
-
-=cut
-
-sub device {
-  my $self = shift;
-  if (@_) { $self->{DEVICE} = shift; }
-  return $self->{DEVICE};
-}
-
-=item B<panel>
-
-The panel number within the plot device.
-
-=cut
-
-sub panel {
-  my $self = shift;
-  if (@_) { $self->{PANEL} = shift; }
-  return $self->{PANEL};
-}
-
-=back
 
 =head2 General Methods
 
@@ -108,20 +44,10 @@ Select the specified panel. Does not erase it.
 sub select {
   my $self = shift;
 
-  # select the PGPLOT device itself
-  $self->device->select;
+  $self->SUPER::select();
 
-  # Convert the panel number to an X, Y coordinate
-  #   1  2  3  4
-  #   5  6  7  8 etc
-  my @nxy = $self->device->nxy;
-  my $panel = $self->panel;
-
-  # Calculate the X position by seeing what the residual
-  # is when dividing by the width
-  my $x = $panel % $nxy[0];
-  my $y = int($panel / $nxy[0] ) + ($x == 0 ? 0 : 1);
-  $x = $nxy[0] if $x == 0;
+  # calculate the coordinates
+  my ($x, $y) = $self->panel_coords();
 
   # Select the panel
   pgpanl( $x, $y );
@@ -150,7 +76,7 @@ Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council.
+Copyright (C) 2004-2005 Particle Physics and Astronomy Research Council.
 All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under

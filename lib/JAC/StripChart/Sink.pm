@@ -69,6 +69,7 @@ sub new {
 		   Attr => ' ',
 		   Tunits => 'unit',
 		   TimeMap => new JAC::StripChart::TimeMap,
+		   Updated => 0,
 		  }, $class;
 
   if (@_) {
@@ -152,6 +153,24 @@ sub timemap {
   return $self->{TimeMap};
 }
 
+=item B<updated>
+
+True if the plot attributes (e.g. growt(), autoscale()) have been
+modified. The attribute is set to true automatically when a relevant
+plot attribute is modified. It can be used by a Sink to decide whether
+a full refresh of a plot is required (but remember to set it to false
+after the plot has been refreshed).
+
+=cut
+
+sub updated {
+  my $self = shift;
+  if (@_) {
+    $self->{Updated} = shift;
+  }
+  return $self->{Updated};
+}
+
 =item B<growt>
 
 A boolean inndicating whether the extent of the strip chart should
@@ -159,11 +178,15 @@ grow as more data are plotted, or it should be a fixed moving
 window. If false, the C<window> method controls the size of the moving
 window.
 
+Sets the updated() flag on update.
+
 =cut
 
 sub growt {
   my $self = shift;
-  if (@_) { $self->{GrowT} = shift; }
+  if (@_) {
+    $self->_set_and_check_update_flag( "GrowT", shift );
+  }
   return $self->{GrowT};
 }
 
@@ -172,12 +195,64 @@ sub growt {
 Size of the moving window for the strip chart, in hours. Only used
 if C<growt> is false.
 
+Sets the updated() flag on update.
+
 =cut
 
 sub window {
   my $self = shift;
-  if (@_) { $self->{Window} = shift; }
+  if (@_) {
+    $self->_set_and_check_update_flag( "Window", shift );
+  }
   return $self->{Window};
+}
+
+=item B<autoscale>
+
+A boolean indicating whether the Y axis should autoscale (true) or
+whether it should be a fixed size.
+
+Sets the updated() flag on update.
+
+=cut
+
+sub autoscale {
+  my $self = shift;
+  if (@_) { 
+    $self->_set_and_check_update_flag( "Autoscale", shift );
+  }
+  return $self->{Autoscale};
+}
+
+=item B<yscale>
+
+The min and max limits for the Y axis. Only used if C<autoscale>
+is false.
+
+  ($min, $max ) = $snk->yscale;
+  $snk->yscale( $min, $max );
+
+Sets the updated() flag on update.
+
+=cut
+
+sub yscale {
+  my $self = shift;
+  if (@_) {
+    my @yl = (ref($_[0]) ? @{ $_[0] } : @_ );
+
+    # need to see if we are updating
+    for my $i ( 0 .. $#yl ) {
+      $yl[$i] = 0 if !defined $yl[$i];
+      if ($self->{Yscale}->[$i] != $yl[$i]) {
+	$self->updated( 1 );
+	last;
+      }
+    }
+
+    @{ $self->{Yscale} } = @yl;
+  }
+  return @{ $self->{Yscale} };
 }
 
 =item B<plottitle>
@@ -200,50 +275,17 @@ Set the output time axis units for the chart.
 
 sub tunits {
   my $self = shift;
-  if (@_) { $self->{Tunits} = shift; }
+  if (@_) {
+    $self->{Tunits} = shift;
+  }
   return $self->{Tunits};
 }
 
-
-=item B<autoscale>
-
-A boolean indicating whether the Y axis should autoscale (true) or
-whether it should be a fixed size.
-
-=cut
-
-sub autoscale {
-  my $self = shift;
-  if (@_) { $self->{Autoscale} = shift; }
-  return $self->{Autoscale};
-}
-
-=item B<yscale>
-
-The min and max limits for the Y axis. Only used if C<autoscale>
-is false.
-
-  ($min, $max ) = $snk->yscale;
-  $snk->yscale( $min, $max );
-
-=cut
-
-sub yscale {
-  my $self = shift;
-  if (@_) {
-    my @yl = (ref($_[0]) ? @{ $_[0] } : @_ );
-    @{ $self->{Yscale} } = @yl;
-  }
-  return @{ $self->{Yscale} };
-}
-
-
 =item B<yunits>
 
-The units for the Y axis. 
+The units for the Y axis.
 
   $yunits = $snk->yunits;
-
   $snk->yunits( $yunits );
 
 =cut
@@ -370,6 +412,51 @@ sub _default_dev_class {
   return '';
 }
 
+=back
+
+=begin __PRIVATE_METHODS__
+
+=head2 Private Methods
+
+=over 4
+
+=item B<_set_and_check_update_flag>
+
+Store the value using the supplied internal object key and if the
+value is different, set the updated() attribute to true.
+
+  $snk->_set_and_check_update_flag( $key, $newvalue );
+
+If the new value is undef, it will be ignored.
+
+=cut
+
+sub _set_and_check_update_flag {
+  my $self = shift;
+  my $key = shift;
+  my $newval = shift;
+  return unless defined $newval;
+
+  my $oldval = $self->{$key};
+
+  my $doupdate;
+  if (defined $oldval) {
+    $doupdate = 1 if $oldval != $newval;
+  } else {
+    $doupdate = 1;
+  }
+
+  if ($doupdate) {
+    $self->{$key} = $newval;
+    $self->updated( 1 );
+  }
+
+  return;
+}
+
+=back
+
+=end __PRIVATE_METHODS__
 
 =head1 AUTHOR
 

@@ -205,12 +205,12 @@ sub find_ncolumns {
   # Read file, looking for columns
   my $ncols;
   while (my $line = <$handle>) {
-    next if $line =~ /^\s*#/; # Ignore lines beginning with # or *
-    $line =~ s/^\s+//g;	# zap leading blanks
+    next if $line =~ /^\s*#/;      # Ignore lines beginning with # or *
+    $line =~ s/^\s+//g;	           # Zap leading blanks
     my @data = split(/\s+/,$line); # Split on spaces
     if (@data) {
-      $ncols = @data;  # Set the number of columns to the split result
-      last;  # we are only looking for the number of columns
+      $ncols = @data;              # Set the number of columns to the split result
+      last;                        # we are only looking for the number of columns
     }
   }
 
@@ -293,8 +293,6 @@ sub getData {
 
   return if ($self->last_read > $self->last_write($self->filename));
 
-#  print "Woo hoo - new data has arrived :-) \n";
-
   # Read new data and store in @newdata
   my @newdata = $self->readsimple($id, $tcol, $ycol, $tformat, $oldest);
 
@@ -338,9 +336,6 @@ sub readsimple {
   open my $handle, "< $file"
     or throw JAC::StripChart::Error::FileNotFound("Error opening file $file: $!");
 
-  # update the last_read time
-  $self->last_read( time() );
-
   my @plotdata;
 
   # Read successive lines from file
@@ -356,6 +351,9 @@ sub readsimple {
     push (@plotdata, [ $tdata, $data[$ycol-1] ]);
 #    push (@plotdata, [ $data[$tcol-1], $data[$ycol-1] ]);
   }
+
+  # update the last_read time
+  $self->last_read( time() );
 
   return @plotdata;
 }
@@ -411,7 +409,6 @@ sub _checkparams {
 
   throw JAC::StripChart::Error::BadArgs("Incorrect number of parameters supplied in call to $sub (need $nparams, found $nfound)")
     if ($nfound != $nparams);
-
 }
 
 =item B<_convert_to_mjd>
@@ -419,6 +416,9 @@ sub _checkparams {
 Routine to convert time format to MJD
 
   my $mjdtime = _convert_to_mjd($timedata, $tformat);
+
+$timedate is a string containing the data/time information which is
+split along specific types of separator (:, / and - allowed).
 
 =cut
 
@@ -443,7 +443,7 @@ sub _convert_to_mjd {
   } else {
     $separator = substr($separator,0,1);
   }
-#  print $tformat ." ". $datetime ." ". $separator." :-)\n";
+#  print $tformat ." ". $datetime ." ". $separator." ...\n";
 
   # Check separator is a legal one, if present (ORACTIME and MJD have no separators)
   warnings::warnif("Unknown separator - unable to parse time string") unless ($separator =~ /[:\/-]|[\s]/);
@@ -463,35 +463,16 @@ sub _convert_to_mjd {
 	  return;
       }
       if ($tformat =~ /dmy/i) {
-	$day = $datetime[0];
-	$month = $datetime[1];
-	$year = $datetime[2];
-	$hour = $datetime[3];
-	$minute = $datetime[4];
-	$seconds = $datetime[5];
+	($day, $month, $year, $hour, $minute, $seconds) = @datetime;
       } elsif ($tformat =~ /mdy/i) {
-	$day = $datetime[1];
-	$month = $datetime[0];
-	$year = $datetime[2];
-	$hour = $datetime[3];
-	$minute = $datetime[4];
-	$seconds = $datetime[5];
+	($month, $day, $year, $hour, $minute, $seconds) = @datetime;
       } elsif ($tformat =~ /ymd/i) {
-	$day = $datetime[2];
-	$month = $datetime[1];
-	$year = $datetime[0];
-	$hour = $datetime[3];
-	$minute = $datetime[4];
-	$seconds = $datetime[5];
+	($year, $month, $day, $hour, $minute, $seconds) = @datetime;
       } elsif ($tformat =~ /hms/i) {
 	my $curdate = gmtime;
 	my @datestring = split(/-/,$curdate->ymd); # By default, $curdate has `-' for a separator
-	$day = $datestring[2];
-	$month = $datestring[1];
-	$year = $datestring[0];
-	$hour = $datetime[0];
-	$minute = $datetime[1];
-	$seconds = $datetime[2];
+	($year, $month, $day) = @datestring;
+	($hour, $minute, $seconds) = @datetime;
       } else {
 	warnings::warnif("Unknown time format - something has gone wrong here.");
       }
@@ -540,7 +521,7 @@ sub _abs_path {
 =item B<last_write>
 
 Internal method to determine the time a file was last written to. Uses the 
-File::stat module.
+File::stat module. 
 
   my $last_write_time = $self->last_write($self->filename);
 
@@ -550,7 +531,6 @@ sub last_write {
   my $self = shift;
   my $file = shift;
   my $inode = stat($file);
-#  print $self->last_read." ".$inode->mtime."\n";
   return $inode->mtime;
 }
 

@@ -17,8 +17,9 @@ unique name for each line), a simple file is assumed to contain
 nothing more than space-separated columns of date, one of which must
 be a time axis. If the time contains no day/month/year info, the
 current values are assumed. The format for the time must be specified
-in the config.ini file. Allowed values are: MJD, ORACTIME, UT, Local,
-where UT and Local are given as hh:mm:ss.sssss.
+in the config.ini file. Allowed values are: MJD, ORACTIME, MDY, DMY,
+YMD and HMS. MJD & ORACTIME have no separators; the others may employ
+any non-numeric, non-space character.
 
 =cut
 
@@ -433,7 +434,6 @@ sub _convert_to_mjd {
   # Find separator
   ($separator = $datetime) =~ s/[\d+\.]//g;
 
-
   # ORACTIME should not have a separator...
   if ($tformat =~ /ora/i && $separator ne "") {
     warnings::warnif("Time format does not look like ORACTIME");
@@ -461,7 +461,7 @@ sub _convert_to_mjd {
       $frac = $datetime - int($datetime);
     } else {
       my @datetime = split(/$separator/,$datetime);
-      if (scalar(@datetime) != 5) {
+      if (scalar(@datetime) != 6 && scalar(@datetime) != 3) {
 	warnings::warnif("Date/Time does not appear to be a known format - unable to continue");
 	  return;
       }
@@ -487,9 +487,11 @@ sub _convert_to_mjd {
 	$minute = $datetime[4];
 	$seconds = $datetime[5];
       } elsif ($tformat =~ /hms/i) {
-	$day = 1;
-	$month = 1;
-	$year = 1;
+	my $curdate = gmtime;
+	my @datestring = split(/-/,$curdate->ymd); # By default, $curdate has `-' for a separator
+	$day = $datestring[2];
+	$month = $datestring[1];
+	$year = $datestring[0];
 	$hour = $datetime[0];
 	$minute = $datetime[1];
 	$seconds = $datetime[2];
@@ -501,7 +503,7 @@ sub _convert_to_mjd {
     Astro::SLA::slaCldj( $year, $month, $day, $mjd, my $j );
     warnings::warnif("Bad status in convert_to_mjd from slaCldj: $j")
       unless $j == 0;
-    # Calculate day fraction
+    # Calculate day fraction unless already calculated above
     $frac = ($hour + $minute/60.0 + $seconds/3600.0)/24.0 unless defined ($frac);
     $mjd += $frac;
   }
@@ -549,32 +551,6 @@ sub last_write {
   my $inode = stat($file);
 #  print $self->last_read." ".$inode->mtime."\n";
   return $inode->mtime;
-}
-
-=item B<_oractime_to_mjd>
-
-Convert ORACTIME (YYYYMMDD.frac)
-
-=cut
-
-sub _oractime_to_mjd {
-  my $class = shift;
-  my $oractime = shift;
-
-  Astro::SLA::slaCldj( substr($oractime,0,4),
-		       substr($oractime,4,2),
-		       substr($oractime,6,2),
-		       my $mjd, my $j
-		     );
-
-  warnings::warnif("Bad status in oractime_to_mjd from slaCldj: $j")
-    unless $j == 0;
-
-  # Add on the fraction of day
-  my $frac = $oractime - int($oractime);
-  $mjd += $frac;
-
-  return $mjd;
 }
 
 =back

@@ -85,7 +85,7 @@ sub new {
   my $mon = bless {
 		   SimpleFile => undef,
 		   MonPos => {},
-		   LastRead => undef,
+		   LastRead => 0,
 		   Ncols => undef,
 		  }, $class;
 
@@ -203,7 +203,7 @@ sub find_ncolumns {
     throw JAC::StripChart::Error::FatalError( "Unable to open file $file despite its existence: $!");
 
   # If successful, then set LastRead attribute
-  $self->last_read(time());
+#  $self->last_read(time());
   # Read file, looking for columns
   my $ncols;
   while (my $line = <$handle>) {
@@ -297,20 +297,20 @@ sub getData {
 
 #  print "Woo hoo - new data has arrived :-) \n";
 
-  # Read new data and store in the @cache
-  my @cache = $self->readsimple($id, $tcol, $ycol, $tformat, $oldest);
+  # Read new data and store in @newdata
+  my @newdata = $self->readsimple($id, $tcol, $ycol, $tformat, $oldest);
 
   # Set the reference time to a new value
-  $self->_monitor_posn( $key, $cache[-1]->[0])
-    if @cache;
+  $self->_monitor_posn( $key, $newdata[-1]->[0])
+    if @newdata;
 
 #  print Dumper(\@cache);
 
   # return the answer (time should be in MJD UT)
   return map { [ $self->_oractime_to_mjd($_->[0]),
 		 $_->[1]
-	       ] } @cache;
-#return @cache;
+	       ] } @newdata;
+#return @newdata;
 }
 
 =item B<readsimple>

@@ -1,12 +1,12 @@
-package JAC::StripChart::Device::PLplot::Subplot;
+package JAC::StripChart::Device::Subplot::PLplot;
 
 =head1 NAME
 
-JAC::StripChart::Device::PLplot::Subplot - A subplot in a PLplot window
+JAC::StripChart::Device::Subplot::PLplot - A subplot in a PLplot window
 
 =head1 SYNOPSIS
 
-  $s = new JAC::StripChart::Device::PLplot::Subplot( $dev, $panel );
+  $s = new JAC::StripChart::Device::Subplot::PLplot( $dev, $panel );
   $s->select;
 
 =head1 DESCRIPTION
@@ -93,7 +93,7 @@ Place,Suite 330, Boston, MA  02111-1307, USA
 
 =head1 SEE ALSO
 
-L<JAC::StripChart>, L<JAC::StripChart::Device::PLplot>
+L<JAC::StripChart>, L<JAC::StripChart::Device::PLplot>, L<JAC::StripChart::Device::Subplot>.
 
 =cut
 

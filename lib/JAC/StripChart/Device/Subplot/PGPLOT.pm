@@ -1,17 +1,17 @@
-package JAC::StripChart::Device::PGPLOT::Subplot;
+package JAC::StripChart::Device::Subplot::PGPLOT;
 
 =head1 NAME
 
-JAC::StripChart::Device::PGPLOT::Subplot - A subplot in a PGPLOT window
+JAC::StripChart::Device::Subplot::PGPLOT - A subplot in a PGPLOT window
 
 =head1 SYNOPSIS
 
-  $s = new JAC::StripChart::Device::PGPLOT::Subplot( $dev, $panel );
+  $s = new JAC::StripChart::Device::Subplot::PGPLOT( $dev, $panel );
   $s->select;
 
 =head1 DESCRIPTION
 
-Provides control of sub plot selection.
+Provides control of sub plot selection for a PGPLOT device.
 
 =cut
 
@@ -94,7 +94,8 @@ Place,Suite 330, Boston, MA  02111-1307, USA
 
 =head1 SEE ALSO
 
-L<JAC::StripChart>, L<JAC::StripChart::Device::PGPLOT>
+L<JAC::StripChart>, L<JAC::StripChart::Device::PGPLOT>,
+L<JAC::StripChart::Device::Subplot>.
 
 =cut
 

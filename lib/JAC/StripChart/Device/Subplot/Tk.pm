@@ -1,12 +1,12 @@
-package JAC::StripChart::Device::Tk::Subplot;
+package JAC::StripChart::Device::Subplot::Tk;
 
 =head1 NAME
 
-JAC::StripChart::Device::Tk::Subplot - A subplot in a Tk window
+JAC::StripChart::Device::Subplot::Tk - A subplot in a Tk window
 
 =head1 SYNOPSIS
 
-  $s = new JAC::StripChart::Device::Tk::Subplot( $dev, $panel );
+  $s = new JAC::StripChart::Device::Subplot::Tk( $dev, $panel );
   $s->select;
 
 =head1 DESCRIPTION
@@ -124,7 +124,7 @@ Place,Suite 330, Boston, MA  02111-1307, USA
 
 =head1 SEE ALSO
 
-L<JAC::StripChart>, L<JAC::StripChart::Device::Tk>
+L<JAC::StripChart>, L<JAC::StripChart::Device::Tk>, L<JAC::StripChart::Device::Subplot>
 
 =cut
 

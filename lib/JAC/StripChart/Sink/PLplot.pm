@@ -218,7 +218,8 @@ sub init {
 
 =item B<putData>
 
-Plot the data on the registered device using AST as the plotting engine.
+Plot the data on the registered device using the standard PLplot stripchart
+engine.
 
   $snk->putData( $chartid, $monid, $attr, @data );
 
@@ -227,6 +228,12 @@ Plot the data on the registered device using AST as the plotting engine.
 sub putData {
   my $self = shift;
   my ($chartid, $monid, $attr, @data ) = @_;
+
+  # Clear the updated() flag. Currently we don't do anything with it
+  $self->updated(0);
+
+  # return immediately if we have no data to plot
+  return unless @data;
 
   # We should cache the data in case we are asked to reset the display
 
@@ -283,7 +290,7 @@ sub _colour_to_index {
   my $colour = shift;
   my $cindex = -1;
   $colour = lc($colour);
-  
+
   # Note the order of @knowncolours is set to match the PLplot index number
   my @knowncolours = qw( red yellow green aquamarine pink wheat grey brown blue blueviolet cyan turquoise magenta salmon white );
 
@@ -351,7 +358,7 @@ Andy Gibb E<lt>agg@astro.ubc.caE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council and
+Copyright (C) 2004-2005 Particle Physics and Astronomy Research Council and
 the University of British Columbia. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
@@ -369,7 +376,8 @@ Place,Suite 330, Boston, MA  02111-1307, USA
 
 =head1 SEE ALSO
 
-L<JAC::StripChart::Sink>, L<JAC::StripChart>, L<JAC::StripChart::Config>
+L<JAC::StripChart::Sink>, L<JAC::StripChart::Sink::AST::PLplot>,
+L<JAC::StripChart>, L<JAC::StripChart::Config>
 
 =cut
 

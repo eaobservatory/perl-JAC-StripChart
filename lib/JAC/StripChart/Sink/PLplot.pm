@@ -177,19 +177,16 @@ sub init {
   # as the reference day. All future points will have that day
   # subtracted
   my $tmin = 0;
-  my $tmax = 0.01; # 0.1 day
-  my $tjump = 0.1; # Grow t-axis by 10% each time autoscale is necessary
+  my $tmax = 0.2; # 0.01 day - start off small and grow
+  my $tjump = 0.2; # Grow t-axis by 10% each time autoscale is necessary
 
   # Determine if autoscale needed. Autoscale = y if result is non zero.
-  my ($autoy, $ymin, $ymax);
-  if ($self->autoscale) {
-    $autoy = 1;
-    ($ymin,$ymax) = (0,1);
-  } else {
-    $autoy = 0;
-    # Allow for case that the yscale isn't specified
-    ($ymin,$ymax) = (defined $self->yscale ? $self->yscale : (0,1)) ;
-  }
+  my $autoy = ( $self->autoscale ? 1 : 0);
+
+  # Allow for case that the yscale isn't specified
+  # or for the case where an autoscale plot has initial conditions set
+  my ($ymin,$ymax) = (defined $self->yscale ? $self->yscale : (0,1)) ;
+
   # Determine if accumulate or window
   my $acc;
   if ($self->growt) {
@@ -212,7 +209,7 @@ sub init {
                      $autoy, $acc,
                      $colbox, $collab,
                      \@colline, \@styline, \@legline,
-                     "time (UT Hr)", "", $self->plottitle);
+                     "time (day fraction)", "", $self->plottitle);
 
   $self->stripid( $id );
 
@@ -240,12 +237,14 @@ sub putData {
   return unless defined $pen;
 
   # Get the reference time, and store it if necessary
+  # This will not work right if the first monitor returns
+  # times that are newer than the next monitor since we will lose
+  # those points.
   my $refmjd = $self->refmjd;
   if (@data && !$refmjd) {
     $refmjd = int($data[0]->[0]);
     $self->refmjd( $refmjd );
   }
-
 
   for my $xy (@data) {
     my $t = $xy->[0] - $refmjd;
@@ -301,7 +300,7 @@ sub _colour_to_index {
     }
   } else {
     # Return error if $cindex not set
-    throw JAC::StripChart::Error::BadConfig("Colour not recognized") if ($cindex == -1);
+    throw JAC::StripChart::Error::BadConfig("Colour '$colour' not recognized") if ($cindex == -1);
   }
 
   return $cindex;

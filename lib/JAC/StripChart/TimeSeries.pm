@@ -134,6 +134,21 @@ sub add_data {
   return;
 }
 
+=item B<alldata>
+
+Retrieves all the data regardless of window. Data are returned
+as a list of x/y pairs.
+
+ @data = $self->alldata();
+
+=cut
+
+sub alldata {
+  my $self = shift;
+  # undocumented access to internal array ref
+  return (wantarray ? @{ $self->{DATA} } : $self->{DATA} );
+}
+
 =item B<data>
 
 Retrieves the data that lies within the currently specified
@@ -174,7 +189,7 @@ sub data {
   my @data;
 
   # Get all of the data
-  my @alldata = @{ $self->{DATA} };
+  my @alldata = $self->alldata;
 
   # Requested interval
   my $int = $self->window;
@@ -185,6 +200,9 @@ sub data {
   my $first;
   my $last;
   foreach my $i (0..$#alldata) {
+
+    ### This needs to be made more efficient such that it stops
+    # the first time we go out of range since we know the data are sorted
 
     # Add data within window
     if ($int->contains( $alldata[$i]->[0] )) {
@@ -361,9 +379,14 @@ sub npts {
 
 =item B<prevdata>
 
-Given a time, return the data pair immediately prior. 
+Given a time, return the data pair immediately prior. Ignores
+the current window setting.
 
   $xypair = $ts->prevdata( $tval );
+  ($t, $y) = $ts->prevdata( $tval );
+
+Can return empty list or undef if no data point exists before this
+value (this will happen if no argument is provided).
 
 Obviously, $tval must be in the same units as the timeseries.
 
@@ -372,22 +395,24 @@ Obviously, $tval must be in the same units as the timeseries.
 sub prevdata {
   my $self = shift;
 
-  if (@_) {
+  my $prev;
+  if (@_ && defined $_[0]) {
     my $tval = shift;
-    my @data = reverse $self->data;
-    my $xval;
-    foreach my $i (0..$#data) {
-      $xval = $data[$i]->[0];
-      last if ($xval < $tval);
+    # Use the low level accessor to bypass any window checks
+    foreach my $d (reverse $self->alldata ) {
+      # jump out the first time we get a value less than the reference
+      if ( $d->[0] < $tval) {
+	$prev = $d;
+	last;
+      }
     }
-    # Return a value slightly smaller than actualt time in order to
-    # guarantee correct return of data within window
-    return 0.99999*$xval; 
-  } else {
-    warnings::warnif("Error: no time value provided, returning final point");
-    return ${ $self->data}[-1];
   }
 
+  if (wantarray) {
+    return (defined $prev ? @$prev : () );
+  } else {
+    return $prev;
+  }
 }
 
 =head1 AUTHOR

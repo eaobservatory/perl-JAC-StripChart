@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Test::More tests => 46;
+use Test::More tests => 50;
 
 require_ok( 'JAC::StripChart::TimeSeries' );
 
@@ -107,3 +107,13 @@ is( $ts->npts, 4, "count number of points");
 is( $ts->npts( outside => 1 ), 6, "count number of points inc outside");
 
 
+# Check prevdata
+my $prev = $ts->prevdata( 5 );
+is( $prev->[0], 4, "check value before 5");
+$prev = $ts->prevdata();
+is( $prev, undef, "check value before undef");
+
+my ($tprev, $yprev) = $ts->prevdata( 5.5 );
+is($tprev, 5, "check value before 5.5");
+($tprev, $yprev) = $ts->prevdata( undef );
+is($tprev, undef, "check value before undef");

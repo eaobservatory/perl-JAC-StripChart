@@ -220,6 +220,12 @@ sub putData {
     }
   }
 
+  # Plotting attributes
+  my $linecol = $self->_colour_to_index($attr->linecol);
+  my $linestyle = $self->_style_to_index($attr->linestyle);
+  my $symcol = $self->_colour_to_index($attr->symcol);
+  my $symbol = $self->_sym_to_index($attr->symbol);
+  
   # Create the new AST plot object if we do not have one
   if (!defined $plt) {
     # Adjust plot limits to look nice
@@ -232,8 +238,14 @@ sub putData {
     }
     my $dx = $xmax - $xmin;
     $xmax = $xmax + 0.1*$dx;
+
+    # Set plot attributes
     $plt = new Starlink::AST::Plot( $self->astFrame(), [0,0,1,1],
-				    [$xmin,$ymin,$xmax,$ymax], "" );
+				    [$xmin,$ymin,$xmax,$ymax], 
+				    "size(title)=1.5,size(textlab)=1.3,size(numlab)=1.3,".
+				    "colour(title)=3,colour(textlab)=3,colour(curves)=$linecol,".
+				    "colour(border)=2,colour(numlab)=2,colour(ticks)=2,".
+				    "style(curves)=$linestyle" );
     $self->astPlot( $plt );
   }
 
@@ -283,16 +295,133 @@ sub _grfselect {
   return;
 }
 
+=item B<_colour_to_index>
+
+Translate given colour to PGPLOT colour index
+
+  $self->_colour_to_index( $colour );
+
+=cut
+
+sub _colour_to_index {
+  my $self = shift;
+  my $colour = shift;
+  my $cindex = -1;
+
+  # Note the order of @knowncolours is set to match the PGPLOT index number
+  my @knowncolours = qw( white red green blue cyan magenta yellow orange chartreuse springgreen skyblue purple pink darkgrey grey);
+
+  # Colour index given
+  if ($colour =~ /\d/) {
+    throw JAC::StripChart::Error::BadConfig("Colour index does not exist - must lie between 1 and 15") if ($colour > 15 || $colour < 1);
+    $cindex = $colour;
+  } elsif ($colour =~ /[a-z]/) {
+    # Convert to lower case
+    my $lcolour = lc($colour);
+    # Now examine other colours and convert known values to indices
+    $lcolour = "grey" if ($lcolour eq "gray"); # For those who can't spell...
+    $lcolour = "grey" if ($lcolour eq "lightgrey"); 
+    for my $j (0..scalar(@knowncolours-1)) {
+      if ($knowncolours[$j] eq $lcolour) {
+	$cindex = $j + 1;
+	last;
+      } 
+    }
+  } else {
+    throw JAC::StripChart::Error::BadConfig("Invalid string for colour");
+  }
+  # Warn if $cindex not set, and set to default colour
+  # FUTURE: use this to establish new colour table
+  if ($cindex == -1) {
+    warnings::warnif(" Unknown colour, '$colour': setting to default value (yellow)");
+    $cindex = 7;
+  }
+  return $cindex;
+}
+
+=item B<_style_to_index>
+
+Translate given line style to PGPLOT line style index
+
+  $self->_style_to_index( $style );
+
+PGPLOT supports only 5 linestyles
+
+=cut
+
+sub _style_to_index {
+  my $self = shift;
+  my $style = shift;
+  my $stindex = 4;
+
+  if ($style eq "solid") {
+    $stindex = 1;
+  } elsif ($style eq "dot" || $style eq "dotted") {
+    $stindex = 4;
+  } elsif ($style eq "dash-dot" || $style eq "ddash" || $style eq "dot-dash" ) {
+    $stindex = 3;
+  } elsif ($style eq "longdash" || $style eq "ldash" || $style eq "dash" || $style eq "dashed" )  {
+    $stindex = 2;
+  } elsif ($style eq "dash-dot-dot" || $style eq "dddash") {
+    $stindex = 5;
+  } else {
+    print " Unknown LineStyle - setting style to solid \n";
+    $stindex = 1;
+  }
+  
+  return $stindex;
+}
+
+=item B<_sym_to_index>
+
+Translate given plot symbol to PGPLOT symbol index
+
+  $self->_sym_to_index( $style );
+
+For now, only support basic symbols (circle, square etc).
+
+=cut
+
+sub _sym_to_index {
+  my $self = shift;
+  my $sym = shift;
+  my $symindex = 4;
+
+  # Prefix with `f' to get filled versions
+  my %knownsymbols = ( square => 0,
+		       dot => 1,
+		       plus => 2,
+		       asterisk => 3,
+		       circle => 4,
+		       cross => 5,
+		       triangle => 7,
+		       diamond => 11,
+		       star => 12,
+		       fcircle => 17,
+		       fsquare => 16,
+		       ftriangle => 13,
+		       fstar => 18,
+		       fdiamond => -4);
+
+  foreach my $symkey (keys %knownsymbols) {
+    $symindex = $knownsymbols{$symkey} if ($symkey eq $sym);
+  }
+  
+  return $symindex;
+}
+
 =back
 
 =head1 AUTHOR
 
-Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
+Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>and
+Andy Gibb E<lt>agg@astro.ubc.caE<gt>
+
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council.
-All Rights Reserved.
+Copyright (C) 2004 Particle Physics and Astronomy Research Council and
+the University of British Columbia. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software

@@ -125,16 +125,22 @@ sub _style_to_index {
   my $style = shift;
   my $stindex = 1;
 
-  if ($style eq "solid") {
-    $stindex = 1;
-  } elsif ($style eq "dot" || $style eq "dotted") {
-    $stindex = 4;
-  } elsif ($style eq "dash-dot" || $style eq "ddash" || $style eq "dot-dash" ) {
-    $stindex = 3;
-  } elsif ($style eq "longdash" || $style eq "ldash" || $style eq "dash" || $style eq "dashed" )  {
-    $stindex = 2;
-  } elsif ($style eq "dash-dot-dot" || $style eq "dddash") {
-    $stindex = 5;
+  if ($style =~ /\d/) {
+    throw JAC::StripChart::Error::BadConfig("Line style index does not exist - must lie between 1 and 5") 
+      if ($style > 5 || $style < 1);
+    $stindex = $style;
+  } elsif ($style =~ /[a-z]/) {
+    if ($style eq "solid") {
+      $stindex = 1;
+    } elsif ($style eq "dot" || $style eq "dotted") {
+      $stindex = 4;
+    } elsif ($style eq "dash-dot" || $style eq "ddash" || $style eq "dot-dash" ) {
+      $stindex = 3;
+    } elsif ($style eq "longdash" || $style eq "ldash" || $style eq "dash" || $style eq "dashed" )  {
+      $stindex = 2;
+    } elsif ($style eq "dash-dot-dot" || $style eq "dddash") {
+      $stindex = 5;
+    }
   } else {
     print " Unknown LineStyle - setting style to solid \n";
     $stindex = 1;
@@ -199,12 +205,14 @@ sub _sym_to_index {
 
 =head1 AUTHOR
 
-Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
+Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt> and
+Andy Gibb E<lt>agg@astro.ubc.caE<gt>
+
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council.
-All Rights Reserved.
+Copyright (C) 2004 Particle Physics and Astronomy Research Council and
+the University of British Columbia. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software

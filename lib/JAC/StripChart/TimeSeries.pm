@@ -183,24 +183,42 @@ sub data {
     unless defined $int;
 
   # Loop through data to find limits
+  my $first;
+  my $last;
   foreach my $i (0..$#alldata) {
 
-    if ($opts{outside}) {
-      # Check if current time is just outside window
-      if ($i != 0) {
-	push ( @data, $alldata[$i-1] )
-	  if ( $int->contains( $alldata[$i]->[0]) &&
-	       ! $int->contains( $alldata[$i-1]->[0] ));
-      }
-      if ($i != $#alldata) {
-	push ( @data, $alldata[$i+1] )
-	  if ( $int->contains($alldata[$i]->[0]) &&
-	       ! $int->contains( $alldata[$i+1] ));
-      }
+    # Add data within window
+    if ($int->contains( $alldata[$i]->[0] )) {
+      push ( @data, $alldata[$i] );
+
+      # store the indices of the first and last hit
+      $first = $i unless defined $first;
+      $last = $i;
+    }
+  }
+
+  # Store the outside values if required (this is useful for plotting lines)
+  # but not if the lower/upper level of the window is exactly matched
+  # by the first/last data point
+  if ($opts{outside}) {
+
+    # get the current extrema
+    my $dtmin = $data[0]->[0];
+    my $dtmax = $data[-1]->[0];
+
+    # First see if the min point equals the window
+    if ($first > 0) {
+      my $wmin = $int->min;
+      # note that wmin must be defined, else $first would be 0
+      push( @data, $alldata[$first-1]) if $wmin < $dtmin;
     }
 
-    # Add data within window
-    push ( @data, $alldata[$i] ) if $int->contains( $alldata[$i]->[0] );
+    # then see if the max point equals the window
+    if ($last < $#alldata) {
+      my $wmax = $int->max;
+      # note that wmax must be defined, else $last would be $#alldata
+      push( @data, $alldata[$last+1]) if $wmax > $dtmax;
+    }
   }
 
   # HACK: shouldn't be needed.
@@ -316,12 +334,25 @@ current window.
 
   $npts = $ts->npts;
 
+Can optionally include the "outside" parameter so as to return values
+consistent with the C<data()> method.
+
+  $npts = $ts->npts( outside => 1 );
+
 =cut
 
 sub npts {
   my $self = shift;
+  my %inopts = @_;
 
-  my ($xdata, $ydata) = $self->data(xyarr => 1, outside => 1);
+  # we only support the following args to data()
+  my @data_args = qw/ outside /;
+  my %opts;
+  for my $a (@data_args) {
+    $opts{$a} = $inopts{$a} if exists $inopts{$a};
+  }
+
+  my ($xdata, $ydata) = $self->data(xyarr => 1, %opts);
   my $npts = ( defined $xdata ? scalar( @{ $xdata } ) : 0 );
 
   $self->{NPTS} = $npts;

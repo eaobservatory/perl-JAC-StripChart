@@ -59,7 +59,7 @@ sub new {
 		   IndexObject => undef,
 		   TCol => undef,
 		   YCol => undef,
-		   Tframe => undef,
+		   Tformat => undef,
 		  }, $class;
 
   if (@_) {
@@ -108,7 +108,7 @@ sub indexfile {
     my $file = shift;
     $self->index( new JAC::StripChart::Monitor::SimpleFile( $file ) )
   }
-  return (defined $self->index ? $self->index->indexfile : undef);
+  return (defined $self->index ? $self->index->filename : undef);
 }
 
 =item B<index>
@@ -154,18 +154,18 @@ sub ycol {
   return $self->{Ycol};
 }
 
-=item B<tframe>
+=item B<tformat>
 
 Set the Time frame units
 
 =cut
 
-sub tframe {
+sub tformat {
   my $self = shift;
   if (@_) {
-    $self->{Tframe} = shift;
+    $self->{Tformat} = shift;
   }
-  return $self->{Tframe};
+  return $self->{Tformat};
 }
 
 =back
@@ -192,7 +192,7 @@ element array. First element is the time in MJD.
 sub getData {
   my $self = shift;
   my $id = shift;
-  return $self->index->getData( $id, $self->tcol, $self->ycol,  $self->tframe );
+  return $self->index->getData( $id, $self->tcol, $self->ycol,  $self->tformat );
 }
 
 =back

@@ -26,6 +26,7 @@ use warnings::register;
 use Carp;
 
 use Graphics::PLplot;
+use Color::Rgb;
 
 use base qw| JAC::StripChart::Sink |;
 use JAC::StripChart::Error;
@@ -115,14 +116,34 @@ sub init {
     $npen = $maxpen;
   }
 
-  # We need to specify color for each pen [should use Attrs]
+  # We need to specify color for each pen [should use Attrs - but these will be CHART attrs, not MONITOR attrs]
   my $colbox = 1;
   my $collab = 3;
 
-  # Start colour from color 2
-  my $startcol = 2;
-  my @colline = ($startcol..($npen+$startcol-1));  # color of lines
-  my @styline = @colline;   # linestyle
+  # Obtain monitor parameters from Attrs object <- note these are MONITOR attrs
+  my (@colline, @colours);
+  my @styline;
+  for my $monid (keys %attrs) {
+    my %monattrs = %{ $attrs{$monid} };
+    push ( @colours, $monattrs{"LineCol"} ); # First just store colours - convert them to something useful in a minute
+    push ( @styline, $self->_style_to_index( $monattrs{"LineStyle"} ) );
+  }
+
+  # Now loop over all required colours and define them in terms of PLplot indices
+  my @knowncolours = qw( red yellow green aquamarine pink wheat grey brown blue BlueViolet cyan turquoise magenta salmon white );
+  for my $col (@colours) {
+    next if ($col=~/\d/); # Ignore colours already specified as indices
+
+    for my $j (0..scalar(@knowncolours)) {
+      next unless ($knowncolours[$j] eq $col);
+      push (@colours, $j);
+    }
+
+  }
+
+#  $self->_colour_to_index( $monattrs{"LineCol"} );
+
+  # Set plot legends to the monitor key names
   my @legline = keys %attrs;
 
   # Create a hash indexed by monitor id so that we can associated
@@ -132,7 +153,7 @@ sub init {
   $self->penid( %pen );
 
   # pad
-  for my $i (($#colline+1)..($maxpen-1)) {
+  for $i (($#colline+1)..($maxpen-1)) {
     $colline[$i] = 5;
     $styline[$i] = $colline[$i];
     $legline[$i] = '';
@@ -142,14 +163,28 @@ sub init {
   my $xlab = 0.7;
   my $ylab = 0.9;
 
+  # Initial limits; these are rescaled by reading of data
   my $tmin = 0;
   my $tmax = 1;
-  my $ymin = 0;
-  my $ymax = 0.1;
-  my $tjump = 0.1;
+  my $tjump = 0.1; # Grow t-axis by 10% each time autoscale is necessary
 
-  my $autoy = 1;  # autoscale y
-  my $acc = 1;    # don't scrip, accumulate
+  # Determine if autoscale needed. Autoscale = y if result is non zero.
+  my ($autoy, $ymin, $ymax);
+  if ($self->autoscale) {
+    $autoy = 1;
+    ($ymin,$ymax) = (0,1);
+  } else {
+    $autoy = 0;
+    # Allow for case that the yscale isn't specified
+    ($ymin,$ymax) = (defined $self->yscale ? $self->yscale : (0,1)) ;
+  }
+  # Determine if accumulate or window
+  my $acc;
+  if ($self->growt) {
+    $acc = 1;
+  } else {
+    $acc = 0;
+  }
 
   # now initialise the strip chart
   my $id = plstripc( "bcnst", "bcnstv", $tmin, $tmax,
@@ -158,7 +193,7 @@ sub init {
                      $autoy, $acc,
                      $colbox, $collab,
                      \@colline, \@styline, \@legline,
-                     "t", "", "Strip chart title goes here");
+                     "time (MJD)", "", $self->plottitle);
 
   $self->stripid( $id );
 
@@ -205,6 +240,65 @@ The default plotting device.
 
 sub _default_dev_class {
   return "PLplot";
+}
+
+=item B<_colour_to_index>
+
+Translate given colour to PLplot colour index
+
+  $self->_colour_to_index( $colour );
+
+=cut
+
+sub _colour_to_index {
+  my $self = shift;
+  my $colour = shift;
+  my $cindex;
+
+  use Data::Dumper;
+  # Colour index given
+  if ($colour =~ /\d/) {
+    throw JAC::StripChart::Error::BadConfig("Colour index does not exist - must lie between 1 and 15") if ($colour > 15 || $colour < 1);
+    $cindex = $colour;
+  } else {
+    my $rgb = new Color::Rgb();
+    print Dumper(keys %{$rgb});
+    
+  }
+
+  return $cindex;
+}
+
+=item B<_style_to_index>
+
+Translate given line style to PLplot colour index
+
+  $self->_style_to_index( $style );
+
+Since only 4 pens are supported in PLplot, only 4 line styles are
+available (out of 8).
+
+=cut
+
+sub _style_to_index {
+  my $self = shift;
+  my $style = shift;
+  my $stindex = 4;
+
+  if ($style eq "solid") {
+    $stindex = 1;
+  } elsif ($style eq "dot" || $style eq "dotted") {
+    $stindex = 2;
+  } elsif ($style eq "dash" || $style eq "dashed") {
+    $stindex = 3;
+  } elsif ($style eq "longdash" || $style eq "ldash") {
+    $stindex = 4;
+  } else {
+    print " Unknown LineStyle - setting style to solid \n";
+    $stindex = 1;
+  }
+  
+  return $stindex;
 }
 
 =head1 AUTHOR

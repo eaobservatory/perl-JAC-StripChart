@@ -27,6 +27,7 @@ use Carp;
 
 use Graphics::PLplot;
 use Color::Rgb;
+use DateTime;
 
 use base qw| JAC::StripChart::Sink |;
 use JAC::StripChart::Error;
@@ -79,6 +80,21 @@ sub penid {
   }
 }
 
+=item B<refmjd>
+
+Reference MJD to be subtracted from all input data prior to plotting.
+Initially unset, should be set by the arrival of the first data point.
+
+=cut
+
+sub refmjd {
+  my $self = shift;
+  if (@_) {
+    $self->{REFMJD} = shift;
+  }
+  return (defined $self->{REFMJD} ? $self->{REFMJD} : 0);
+}
+
 =back
 
 =head2 General Methods
@@ -93,7 +109,8 @@ Initialise the PLplot stripchart subsystem.
 
 Expects to receive the chart attributes for all the monitors
 serviced by this sink, as a hash with keys corresponding to
-the monitor label.
+the monitor label and values as C<JAC::StripChart::Chart::Attrs>
+objects.
 
 =cut
 
@@ -125,9 +142,9 @@ sub init {
   my @colline;
   my @styline;
   for my $monid (keys %attrs) {
-    my %monattrs = %{ $attrs{$monid} };
-    push ( @colline, $self->_colour_to_index( $monattrs{"LineCol"} ) ); 
-    push ( @styline, $self->_style_to_index( $monattrs{"LineStyle"} ) );
+    my $attr = $attrs{$monid};
+    push ( @colline, $self->_colour_to_index( $attr->linecol ) );
+    push ( @styline, $self->_style_to_index( $attr->linestyle ) );
   }
 
   # Set plot legends to the monitor key names
@@ -146,13 +163,21 @@ sub init {
     $legline[$i] = '';
   }
 
-  # legend position  
+  # legend position
   my $xlab = 0.65;
   my $ylab = 0.9;
 
   # Initial limits; these are rescaled by reading of data
+  # but the data arriving must be greater than tmin for the
+  # refresh to occur
+  # The plplot stripchart must be pre-configured with the starting
+  # position and so can not determine it from the arriving data.
+  # The simplest approach is to start PLplot at 0.0
+  # and when the first point comes in for real, reference that point
+  # as the reference day. All future points will have that day
+  # subtracted
   my $tmin = 0;
-  my $tmax = 1;
+  my $tmax = 0.01; # 0.1 day
   my $tjump = 0.1; # Grow t-axis by 10% each time autoscale is necessary
 
   # Determine if autoscale needed. Autoscale = y if result is non zero.
@@ -187,7 +212,7 @@ sub init {
                      $autoy, $acc,
                      $colbox, $collab,
                      \@colline, \@styline, \@legline,
-                     "time (MJD)", "", $self->plottitle);
+                     "time (UT Hr)", "", $self->plottitle);
 
   $self->stripid( $id );
 
@@ -214,8 +239,17 @@ sub putData {
   my $id  = $self->stripid();
   return unless defined $pen;
 
+  # Get the reference time, and store it if necessary
+  my $refmjd = $self->refmjd;
+  if (@data && !$refmjd) {
+    $refmjd = int($data[0]->[0]);
+    $self->refmjd( $refmjd );
+  }
+
+
   for my $xy (@data) {
-    $id->plstripa( $pen, $xy->[0], $xy->[1]);
+    my $t = $xy->[0] - $refmjd;
+    $id->plstripa( $pen, $t, $xy->[1]);
   }
 
 }

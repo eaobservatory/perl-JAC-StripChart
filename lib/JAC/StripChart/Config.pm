@@ -26,10 +26,14 @@ use warnings::register;
 use Carp;
 
 use JAC::StripChart::Error;
+use JAC::StripChart::Chart;
+
 use Config::IniFiles;
 
 use vars qw/ $VERSION /;
 $VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
+
+my $CHART_PREFIX = "chart";
 
 =head1 METHODS
 
@@ -52,6 +56,7 @@ sub new {
   my $cfg = bless {
 		   FileName => undef,
 		   NXY => [],
+		   Charts => [],
 		  }, $class;
 
   if (@_) {
@@ -80,6 +85,27 @@ sub filename {
     $self->read_config();
   }
   return $self->{FileName};
+}
+
+=item B<charts>
+
+Configured StripChart objects generated from the config file.
+
+  @charts = $cfg->charts();
+  $cfg->charts(@charts);
+
+=cut
+
+sub charts {
+  my $self = shift;
+  if (@_) {
+    # see if we have a hash ref as first arg
+    my @charts = (ref($_[0]) eq 'ARRAY'  ? @{$_[0]} : @_);
+
+    # Should add a test for class here
+    @{ $self->{Charts} } = @charts;
+  }
+  return @{ $self->{Charts} };
 }
 
 =item B<nxy>
@@ -131,7 +157,7 @@ sub read_config {
   tie %data, 'Config::IniFiles', (-file => $fname);
 
   # Find the largest chart index
-  my @index = map { substr($_,5) } grep /^chart(\d+)$/, keys %data;
+  my @index = map { substr($_,5) } grep /^$CHART_PREFIX(\d+)$/, keys %data;
 
   # sort the indices
   @index = sort @index;
@@ -184,19 +210,26 @@ sub read_config {
   print Dumper($self);
 
   # Read all the chart information
-  my @charts;
+  my @charts; # Chart objects
+  my %cmon;  # Chart monitor id lookup
   my %mkeys;
   for my $i (@index) {
 
-    # parse plot information
-    print "Found chart $i\n";
-
-    # Now need to create Chart objects
-
     # Store monitor details for later creation
-    for my $m (split(/,/, $data{"chart$i"}->{data})) {
+    # And also store the relevant monitor names for this chart
+    my @thischart;
+    for my $m (split(/,/, $data{"$CHART_PREFIX$i"}->{data})) {
+      push(@thischart,$m);
       $mkeys{$m}++;
     }
+
+    # Now need to create Chart objects
+    # Do it here rather than after monitor object creation
+    # in order to save a loop
+    my $chartid = "chart$i";
+    push(@charts, new JAC::StripChart::Chart( chartid => $chartid));
+    $cmon{$chartid} = \@thischart;
+
   }
 
 
@@ -221,6 +254,9 @@ sub read_config {
       }
     }
 
+    # some descriptive id
+    $args{monid} = $m;
+
     print Dumper(\%args);
 
     my $class = "JAC::StripChart::Monitor::$class_suffix";
@@ -232,9 +268,20 @@ sub read_config {
 
   }
 
+  # Attach monitors to charts
+  for my $cht (@charts) {
+    my $c = $cht->chartid;
+
+    # now iterate over each monitor string, attaching it
+    my @mon = map { $monitors{$_} } @{ $cmon{$c} };
+
+    # Attach to the chart object
+    $cht->monitors( \@mon );
+  }
+
 
   # Store charts
-#  $self->charts( @charts );
+  $self->charts( @charts );
 
 }
 

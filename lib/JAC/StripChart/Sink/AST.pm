@@ -141,13 +141,55 @@ sub init {
   my @attrs = @_;
   $self->attr(@attrs);
 
-  # Create the AST plot and set the plotting attributes
-#  my $title = $self->plottitle;
-#  my $yunits = $self->yunits;
+  # Configure the timemap (we may want to make this choice
+  # configurable so I'm writing this as if it is)
+  my $output = 'radians';  # days or radians or hours or unit
 
-#  my $fr = new Starlink::AST::Frame( 2, "title=$title,label(1)=Time,unit(1)=MJD,label(2)=Flux,unit(2)=$yunits" );
-  my $fr = new Starlink::AST::Frame( 2, "title=StripChart,label(1)=Time,unit(1)=MJD,label(2)=Flux,unit(2)=Jy" );
+  my $fr;
+  my $shared = "title=StripChart,label(1)=Time,label(2)=Flux,unit(2)=Jy";
+  if ($output eq 'days' || $output eq 'unit') {
+    $self->timemap->output( $output );
 
+    # unit string depends on format but we know that refdate
+    # will be set
+    my $unit;
+    if ($output eq 'days' ) {
+      $unit = 'frac UT day';
+    } else {
+      $unit = 'MJD';
+    }
+
+    # Create the plotting frame
+    $fr = new Starlink::AST::Frame( 2, "$shared,unit(1)=$unit" );
+
+  } elsif ($output eq 'hours' ) {
+
+    $self->timemap->output( $output );
+
+    # Create the plotting frame
+    $fr = new Starlink::AST::Frame( 2, "$shared,unit(1)=UT Hours" );
+
+  } elsif ($output eq 'radians' ) {
+
+    $self->timemap->output( $output );
+
+    # Now we get tricky since we want a slice of a SkyFrame
+    # to render the hours minutes and seconds as if it was 
+    # a RA cut
+
+    # create a sky frame and extract axis 1 (RA) into a new 1D frame
+    my $sky = new Starlink::AST::SkyFrame( "" );
+    my $ra = $sky->PickAxes( [1] );
+
+    # create a 1D frame for the Y axis
+    my $yaxis = new Starlink::AST::Frame(1, "" );
+
+    # combine into a 2D compound frame
+    $fr = new Starlink::AST::CmpFrame( $ra, $yaxis, "$shared,unit(1)=UT Hours" );
+
+  } else {
+    throw JAC::StripChart::Error::FatalError("Unknown output format for map: $output");
+  }
 
   $self->astFrame( $fr );
 
@@ -167,13 +209,16 @@ sub putData {
   my $self = shift;
   my ($chartid, $monid, $attr, @data ) = @_;
 
-  use Data::Dumper;
-
   # Retrieve or create new timeseries object
   my $ts = $self->astCache( $monid );
 
   # Sort data by time (useful later)
   @data = sort { $a->[0] <=> $b->[0] } @data;
+
+  # Use the first date as reference date for the mapping
+  if (!$self->timemap->refdate) {
+    $self->timemap->refdate( int($data[0]->[0]) );
+  }
 
   # Store new data in it
   $ts->add_data( @data );
@@ -296,6 +341,10 @@ sub putData {
     # Get the current plot bounds from the plot frame
     my @plotbounds = $plt->PBox;
 
+    # convert the t bounds back to MJD
+    ($plotbounds[0]) = $self->timemap->do_inverse( $plotbounds[0] );
+    ($plotbounds[1]) = $self->timemap->do_inverse( $plotbounds[1] );
+
     # see if the data bounds are inside these bounds
     if ( $wxmin < $plotbounds[0] ||
 	 $wxmax > $plotbounds[1] ||
@@ -320,17 +369,19 @@ sub putData {
       $self->device->clear();
       undef $plt;
 
-      # But make sure that we retrieve all the cache for replotting
-      # from the specified x-range
-#      ($xref, $yref) = $ts->data(xyarr => 1, outside => 1);
     }
   }
 
   # Create the new AST plot object if we do not have one
   if (!defined $plt) {
-    
+    # convert t bounds to processed format
+    my ($mapped_plxmin) = $self->timemap->do_map( $plxmin );
+    my ($mapped_plxmax) = $self->timemap->do_map( $plxmax );
+
+    # create plot
     $plt = new Starlink::AST::Plot( $self->astFrame(), [0,0,1,1],
-				    [$plxmin,$plymin,$plxmax,$plymax], 
+				    [$mapped_plxmin,$plymin,
+				     $mapped_plxmax,$plymax], 
 				    "size(title)=1.5,size(textlab)=1.3,size(numlab)=1.3,".
 				    "colour(title)=3,colour(textlab)=3,labelling=exterior,".
 				    "colour(border)=2,colour(numlab)=2,colour(ticks)=2");
@@ -345,7 +396,6 @@ sub putData {
   # Find most recent time
   my $lastdata = $data[0]->[0]; 
   my $lasttime = $ts->prevdata($lastdata); # Return ref to earliest point
-#  print Dumper($lasttime);
 
   # If a plot exists, and we have plotted data previously then
   # determine the most recent data to plot.
@@ -395,13 +445,14 @@ sub putData {
 	  my $tssym = $self->_sym_to_index($tsattr->symbol);
 	  my ($xcache, $ycache) = $tscache->data(xyarr => 1, outside => 1);
 	  $plt->Set("colour(markers)", $tsscol);
-	  $plt->Mark($tssym, $xcache, $ycache);
+	  my @mapped = $self->timemap->do_map( @$xcache );
+	  $plt->Mark($tssym, \@mapped, $ycache);
 	  if ($ncachepts > 1) {
 	    my $tslcol = $self->_colour_to_index($tsattr->linecol);
 	    my $tslstyle = $self->_style_to_index($tsattr->linestyle);
 	    $plt->Set("colour(curves)", $tslcol);
 	    $plt->Set("style(curves)", $tslstyle);
-	    $plt->PolyCurve($xcache, $ycache);
+	    $plt->PolyCurve(\@mapped, $ycache);
 	  }
 	}
       } # end unless $monid
@@ -455,14 +506,15 @@ sub putData {
     my $symcol = $self->_colour_to_index($attr->symcol);
     my $symbol = $self->_sym_to_index($attr->symbol);
     $plt->Set("colour(markers)",$symcol);
-    $plt->Mark($symbol, $plxref, $plyref);
+    my @mapped = $self->timemap->do_map( @$plxref );
+    $plt->Mark($symbol, \@mapped, $plyref);
 
     if ($npts > 1) {
       my $linecol = $self->_colour_to_index($attr->linecol);
       my $linestyle = $self->_style_to_index($attr->linestyle);
       $plt->Set("colour(curves)", $linecol);
       $plt->Set("style(curves)", $linestyle);
-      $plt->PolyCurve($plxref, $plyref); 
+      $plt->PolyCurve(\@mapped, $plyref);
     }
   }
 

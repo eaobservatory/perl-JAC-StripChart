@@ -226,13 +226,17 @@ sub update {
   for my $m ($self->monitors) {
 
     my @newdata = $m->getData( $self->chartid );
-    next unless @newdata;
 
     # and plot that data on each sink
     for my $s ($self->sinks) {
-      $s->putData( $self->chartid, $m->monid,
-		   $self->monattrs( $m->monid ),
-		   @newdata );
+      # if we have no data to plot we still call putData
+      # if the sink indicates that plot parameters have been
+      # updated
+      if ( $s->updated || scalar(@newdata) ) {
+	$s->putData( $self->chartid, $m->monid,
+		     $self->monattrs( $m->monid ),
+		     @newdata );
+      }
     }
   }
 }

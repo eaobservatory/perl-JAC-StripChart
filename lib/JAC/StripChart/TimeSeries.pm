@@ -35,6 +35,7 @@ use warnings;
 use warnings::register;
 use Carp;
 
+use Number::Interval;
 use List::Util qw/ min max /;
 
 use vars qw/ $VERSION /;
@@ -72,7 +73,7 @@ sub new {
   my $ts = bless {
 		  ID => $id,
 		  DATA => [], # use array of arrays for now
-		  WINDOW => [], # array containing $tmin & $tmax
+		  WINDOW => undef, # Number::Interval
 		 }, $class;
 
   return $ts;
@@ -109,57 +110,28 @@ be removed (this can be used to remove points).
 Time is assumed to increase; the time series data will always be sorted
 into time order when retrieved.
 
+A single time should refer to a single value.
+
 =cut
 
 sub add_data {
   my $self = shift;
 
-  # Take a copy of the input data and sort them into time order
-  my @new = sort { $a->[0] <=> $b->[0] } @_;
+  # We want to remove duplicates. The easiest way to do this is
+  # to use a hash (although not the most memory efficient for a
+  # large time series).
 
-  my $j = 0;
+  # hash the existing data with the new data
+  my %data = map { $_->[0] => $_ } @{ $self->{DATA} }, @_;
 
-  # First time through, just insert all the data
-  if (@{$self->{DATA}} ) {
+  # Sort the keys into time order
+  my @sortkeys = sort { $data{$a}->[0] <=> $data{$b}->[0] } keys %data;
 
-    # Loop through existing data
-    for my $i ( 0..$#{$self->{DATA}} ) { 
-      # we need to see if any members of @new fit into
-      # the current array position
-      while ( $new[$j] ) {
-	# skip to next stored data point if new data are newer than stored data
-	next if ( $new[$j]->[0] > $self->{DATA}->[$i]->[0] ); 
-	# Check for a match and replace with newer value 
-	if ($new[$j]->[0] = $self->{DATA}->[$i]->[0] ) {
-	  # If $y is undef, then delete entry
-	  if (defined $new[$j]->[1]) {
-	    $self->{DATA}->[$i]->[1] = $new[$j]->[1];
-	  } else {
-	    # Set entry to undef
-	    $self->{DATA}->[$i] = undef;
-	  }
-	  next;
-	}
-	# Else just store the new data
-	push (@{ $self->{DATA} }, $new[$j] );
-	$j++;
-      }
-    }
+  # and recreate the sorted list whilst removing undefs
+  @{ $self->{DATA} } = grep { defined $_-[1] }
+                          map { $data{$_} } @sortkeys;
 
-  } else {
-
-    # Else just store the new data
-    while ( $new[$j] ) {
-      push (@{ $self->{DATA} }, $new[$j] );
-      $j++;
-    }
-
-  }
-
-  # Delete undef'ed entries
-  @{ $self->{DATA} } = sort { $a->[0] <=> $b->[0]} grep { defined $_->[1] } @{ $self->{DATA} };
-
-  return $self->{DATA};
+  return;
 }
 
 =item B<data>
@@ -186,6 +158,9 @@ Retrieve the data as a reference to an array of time coordinates and
 a reference to an array of Y coordinates. This is useful for some plotting
 libraries.
 
+If the window is not defined (both ranges undefined), the full data
+set are retrieved.
+
 =cut
 
 sub data {
@@ -194,19 +169,17 @@ sub data {
 	      xyarr => 0,
 	      outside => 0,
 	      @_);
+
+  # Somewhere to store the output data
   my @data;
 
-  # Store all of the data
+  # Get all of the data
   my @alldata = @{ $self->{DATA} };
-  my ($tmin, $tmax) = $self->window;
 
-  # First time through, $tmin/max won't be defined, so set them to
-  # smallest/largest values
-  if (!$tmin || !$tmax) {
-    my @times = map {$_->[0]} @alldata;
-    $tmin = min(@times);
-    $tmax = max(@times);
-  }
+  # Requested interval
+  my $int = $self->window;
+  $int = new Number::Interval( Min => undef, Max => undef)
+    unless defined $int;
 
   # Loop through data to find limits
   foreach my $i (0..$#alldata) {
@@ -214,20 +187,21 @@ sub data {
     if ($opts{outside}) {
       # Check if current time is just outside window
       if ($i != 0) {
-	push ( @data, $alldata[$i] ) 
-	  if ( ($alldata[$i]->[0] >= $tmax) && ($alldata[$i-1]->[0] <= $tmax) );
+	push ( @data, $alldata[$i-1] )
+	  if ( $int->contains( $alldata[$i]->[0]) &&
+	       ! $int->contains( $alldata[$i-1]->[0] ));
       }
       if ($i != $#alldata) {
-	push ( @data, $alldata[$i] ) 
-	  if ( ($alldata[$i]->[0] <= $tmin) && ($alldata[$i+1]->[0] >= $tmin) );
+	push ( @data, $alldata[$i+1] )
+	  if ( $int->contains($alldata[$i]->[0]) &&
+	       ! $int->contains( $alldata[$i+1] ));
       }
     }
 
     # Add data within window
-    push ( @data, $alldata[$i] ) 
-      if ( ($alldata[$i]->[0] >= $tmin) && ($alldata[$i]->[0] <= $tmax) );
+    push ( @data, $alldata[$i] ) if $int->contains( $alldata[$i]->[0] );
   }
-  
+
   if ($opts{xyarr}) {
     # If separate arrays wanted, split data into 2 arrays
     my (@tdata, @ydata);
@@ -235,46 +209,89 @@ sub data {
       push (@tdata, $data[$i]->[0]);
       push (@ydata, $data[$i]->[1]);
     }
-    return \@tdata, \@ydata;
-  } 
+    return (\@tdata, \@ydata);
+  }
 
   return @data;
 }
 
 =item B<window>
 
-Sets the current plotting window
+Sets the current plotting window as a C<Number::Interval> object.
 
-  $ts->window( $tmin, $tmax);
+  $ts->window( $interval );
 
-  @limits = $ts->window;
+Returns the interval object in scalar context.
 
-If called with no args, then returns the current window as an array.
+  $interval = $ts->window();
+
+In a list context, returns the limits (undef for no lower bound
+or no upper bound respectively)
+
+  ($wmin, $wmax) = $ts->window();
+
+If 2 arguments are given to this method, they will be converted into
+a C<Number::Interval> object.
 
 =cut
 
 sub window {
   my $self = shift;
   if (@_) {
-    @{ $self->{WINDOW} } = @_;
-  } else {
-    return @{ $self->{WINDOW} };
+    if (scalar(@_) == 1) {
+      my $int = shift;
+      croak "Window must be supplied as a Number::Interval object"
+         if (defined $int && !UNIVERSAL::isa( $int, "Number::Interval"));
+      $self->{WINDOW} = $int;
+    } elsif (scalar(@_) == 2) {
+      my ($min, $max) = @_;
+      $self->{WINDOW} = new Number::Interval( Min => $min, Max => $max );
+    } else {
+      croak "Bizarre number of arguments to window() method";
+    }
   }
-  return;
+
+  if (wantarray) {
+    if (defined $self->{WINDOW}) {
+      return ($self->{WINDOW}->minmax);
+    } else {
+      return (undef,undef);
+    }
+  } else {
+    return $self->{WINDOW};
+  }
 }
 
 =item B<bounds>
 
 Retrieve the upper and lower t- and y-bounds within the current window
 
-  @bounds = $ts->bounds;
+  ($tmin, $tmax, $ymin, $ymax) = $ts->bounds;
+
+If the argument is true, the windowing will be disabled and the full
+bounds will be returned.
+
+  ($tmin, $tmax, $ymin, $ymax) = $ts->bounds( 1 );
 
 =cut
 
 sub bounds {
   my $self = shift;
+  my $full = shift;
 
+  # clear the window and retain the current values
+  my $oldwin;
+  if ($full) {
+    $oldwin = $self->window;
+    $self->window( undef, undef );
+  }
+
+  # get the data within the window
   my ($tdataref, $ydataref) = $self->data(xyarr => 1);
+
+  # reset the windowing
+  $self->window( $oldwin ) if defined $oldwin;
+
   my @tdata = @{ $tdataref };
   my @ydata = @{ $ydataref };
 
@@ -294,7 +311,7 @@ Andy Gibb E<lt>agg@astro.ubc.caE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council and
+Copyright (C) 2004, 2005 Particle Physics and Astronomy Research Council and
 the University of British Columbia. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under

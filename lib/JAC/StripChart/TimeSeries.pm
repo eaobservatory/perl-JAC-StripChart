@@ -72,7 +72,7 @@ sub new {
   my $ts = bless {
 		  ID => $id,
 		  DATA => [], # use array of arrays for now
-		  WINDOW => [], # array of values $tmin & $tmax
+		  WINDOW => [], # array containing $tmin & $tmax
 		 }, $class;
 
   return $ts;
@@ -118,34 +118,48 @@ sub add_data {
   my @new = sort { $a->[0] <=> $b->[0] } @_;
 
   my $j = 0;
-  # Loop through existing data
-  for my $i ( 0.. $#{$self->{DATA}} ) { 
-    # we need to see if any members of @new fit into
-    # the current array position
-    while ( $new[$j] ) {
-      # skip to next stored data point if new data are newer than stored data
-      next if ( $new[$j]->[0] > $self->{DATA}->[$i]->[0] ); 
-      # Check for a match and replace with newer value 
-      if ($new[$j]->[0] = $self->{DATA}->[$i]->[0] ) {
-	# If $y is undef, then delete entry
-	if (defined $new[$j]->[1]) {
-	  $self->{DATA}->[$i]->[1] = $new[$j]->[1];
-	} else {
-	  # Set entry to undef
-	  $self->{DATA}->[$i] = undef;
+
+  # First time through, just insert all the data
+  if (@{$self->{DATA}} ) {
+
+    # Loop through existing data
+    for my $i ( 0..$#{$self->{DATA}} ) { 
+      # we need to see if any members of @new fit into
+      # the current array position
+      while ( $new[$j] ) {
+	# skip to next stored data point if new data are newer than stored data
+	next if ( $new[$j]->[0] > $self->{DATA}->[$i]->[0] ); 
+	# Check for a match and replace with newer value 
+	if ($new[$j]->[0] = $self->{DATA}->[$i]->[0] ) {
+	  # If $y is undef, then delete entry
+	  if (defined $new[$j]->[1]) {
+	    $self->{DATA}->[$i]->[1] = $new[$j]->[1];
+	  } else {
+	    # Set entry to undef
+	    $self->{DATA}->[$i] = undef;
+	  }
+	  next;
 	}
-	next;
+	# Else just store the new data
+	push (@{ $self->{DATA} }, $new[$j] );
+	$j++;
       }
-      # Else just store the new data
+    }
+
+  } else {
+
+    # Else just store the new data
+    while ( $new[$j] ) {
       push (@{ $self->{DATA} }, $new[$j] );
       $j++;
     }
+
   }
 
 #  @cleaned = grep { defined $_->[1] } @unclean;
 
   # Sort data and return
-  return sort $self->{DATA};
+  return $self->{DATA};
 }
 
 =item B<data>
@@ -185,6 +199,14 @@ sub data {
   # Store all of the data
   my @alldata = @{ $self->{DATA} };
   my ($tmin, $tmax) = $self->window;
+
+  # First time through, $tmin/max won't be defined, so set them to
+  # smallest/largest values
+  if (!$tmin || !$tmax) {
+    my @times = map {$_->[0]} @alldata;
+    $tmin = min(@times);
+    $tmax = max(@times);
+  }
 
   # Loop through data to find limits
   foreach my $i (0..$#alldata) {

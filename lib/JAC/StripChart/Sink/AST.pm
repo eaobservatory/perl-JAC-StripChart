@@ -210,6 +210,9 @@ sub putData {
   my $self = shift;
   my ($chartid, $monid, $attr, @data ) = @_;
 
+  # return immediately if no data and not updated
+  return if (!scalar(@data) && !$self->updated);
+
   # Retrieve or create new timeseries object
   my $ts = $self->astCache( $monid );
 
@@ -217,12 +220,15 @@ sub putData {
   @data = sort { $a->[0] <=> $b->[0] } @data;
 
   # Use the first date as reference date for the mapping
-  if (!$self->timemap->refdate) {
+  if (!$self->timemap->refdate && scalar(@data) ) {
     $self->timemap->refdate( int($data[0]->[0]) );
   }
 
   # Store new data in it
   $ts->add_data( @data );
+
+  # return if no data in time series yet
+  return unless $ts->npts( full => 1 );
 
   # Relevance of prefix to min/max variables:
   # ts = entire timeseries
@@ -248,12 +254,16 @@ sub putData {
   if (!$window || (defined $window && $window <= 0)) {
     # Check if ts x-limits are equal...
     if ($tsxmin == $tsxmax) {
+      my $dayfrac = 1 / 24; # 1 hour
       if ($tsxmin == 0) { # Catch value = 0 case
 	$plxmin = 0;
-	$plxmax = 1;
+	$plxmax = $dayfrac;
       } else {
-	$plxmin = 0.9*$tsxmin;
-	$plxmax = 1.1*$tsxmax;
+	# units are in MJD so we only want to adjust the default
+	# bounds by a fraction of a day not a fraction of the MJD
+	# if we have min == max
+	$plxmax = $tsxmax + $dayfrac;
+	$plxmin = max( int($tsxmin), ($tsxmin - $dayfrac) );
       }
     } else {
       $plxmin = $tsxmin;

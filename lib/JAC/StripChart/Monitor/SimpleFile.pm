@@ -15,11 +15,11 @@ JAC::StripChart::Monitor::SimpleFile - low level simple data file access
 Whereas an ORAC index file must contain the column header info (and a
 unique name for each line), a simple file is assumed to contain
 nothing more than space-separated columns of date, one of which must
-be a time axis. If the time contains no day/month/year info, the
-current values are assumed. The format for the time must be specified
-in the config.ini file. Allowed values are: MJD, ORACTIME, MDY, DMY,
-YMD and HMS. MJD & ORACTIME have no separators; the others may employ
-any non-numeric, non-space character.
+be a time axis. If the time contains only HMS info, the current UT
+date is assumed. The format for the time must be specified in the
+config.ini file. Allowed values are: MJD, ORACTIME, MDY, DMY, YMD and
+HMS. MJD & ORACTIME have no separators; the others may employ any
+non-numeric, non-space character.
 
 =cut
 
@@ -201,7 +201,7 @@ sub find_ncolumns {
     throw JAC::StripChart::Error::FatalError( "Unable to open file $file despite its existence: $!");
 
   # If successful, then set LastRead attribute
-#  $self->last_read(time());
+#  $self->last_read( time() );
   # Read file, looking for columns
   my $ncols;
   while (my $line = <$handle>) {
@@ -214,6 +214,7 @@ sub find_ncolumns {
     }
   }
 
+  close($handle);
   # Need to be careful about re-checking this if the file suddenly appears
   return $self->ncols($ncols);
 
@@ -285,29 +286,27 @@ sub getData {
 
   # Read (get) the stored reference time for this chart
   my $reftime = $self->_monitor_posn( $key );
+#  print $reftime;
+
+#  return if ($self->last_read > $self->last_write($self->filename));
+  return if ($reftime > $self->last_write($self->filename));
+
   if (!$oldest) {
     $oldest = $reftime ;
   } else {
     $oldest = $self->oldest_monpos;
   }
-
-  return if ($self->last_read > $self->last_write($self->filename));
+#  print $id, $oldest ."\n";
 
   # Read new data and store in @newdata
-  my @newdata = $self->readsimple($id, $tcol, $ycol, $tformat, $oldest);
+  my @newdata = $self->readsimple($id, $tcol, $ycol, $tformat, $oldest, $key);
 
-  # Set the reference time to a new value
-  $self->_monitor_posn( $key, $newdata[-1]->[0])
-    if @newdata;
+  # Set the reference time to a new value - note time is in MJD!
+#  $self->_monitor_posn( $key, $newdata[-1]->[0])
+#    if @newdata;
 
-#  print Dumper(\@cache);
-
-  # return the answer (time should be in MJD UT)
+  # return the answer (time is in MJD)
   return map { [ $_->[0], $_->[1] ] } @newdata;
-#  return map { [ $self->_oractime_to_mjd($_->[0]),
-#		 $_->[1]
-#	       ] } @newdata;
-#return @newdata;
 }
 
 =item B<readsimple>
@@ -324,9 +323,9 @@ is the index of the column, etc
 sub readsimple {
   my $self = shift;
 
-  # Fail if less than 5 parameters are present
-  $self->_checkparams( 5, \@_ );
-  my ($id, $tcol, $ycol, $tformat, $oldest) = @_;
+  # Fail if less than 6 parameters are present
+  $self->_checkparams( 6, \@_ );
+  my ($id, $tcol, $ycol, $tformat, $oldest, $key) = @_;
 
   # Get the filename and see if it is present
   my $file = $self->filename;
@@ -344,14 +343,16 @@ sub readsimple {
     $line =~ s/^\s+//g;     # Delete leading blanks
     my @data = split(/\s+/,$line);
 
-    # Convert time to MJD - this has to be done somewhere, might as well try it here
+    # Convert time data to MJD
     my $tdata = $self->_convert_to_mjd($data[$tcol-1], $tformat);
     # String comparison of time in case time format includes non digits.
     next if $tdata lt $oldest;
     push (@plotdata, [ $tdata, $data[$ycol-1] ]);
 #    push (@plotdata, [ $data[$tcol-1], $data[$ycol-1] ]);
+    $self->_monitor_posn( $key, $data[$tcol-1]);
   }
 
+  close($handle);
   # update the last_read time
   $self->last_read( time() );
 
@@ -452,6 +453,7 @@ sub _convert_to_mjd {
     return $datetime;
   } else {
     if ($tformat =~ /ora/i) {
+#      print $datetime ."\n";
       $day = substr($datetime,6,2);
       $month = substr($datetime,4,2);
       $year = substr($datetime,0,4);

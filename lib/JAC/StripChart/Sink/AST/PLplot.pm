@@ -214,7 +214,7 @@ sub _sym_to_index {
     $symindex = 845;
   }
 
-  return;
+  return $symindex;
 }
 
 

@@ -43,8 +43,6 @@ sub canvas {
   my $self = shift;
   if (@_) {
     my $arg = shift;
-    use Data::Dumper;
-    print Dumper([caller]);
     throw JAC::StripChart::Error::BadClass( "Argument must be a Tk::Canvas object") unless UNIVERSAL::isa( $arg, "Tk::Canvas");
     $self->{CANVAS} = $arg;
   }
@@ -81,9 +79,6 @@ sub select {
   my $panel = $self->panel;
 
   my $canvases = $self->device->devid;
-  print "Panel: $panel\n";
-  use Data::Dumper;
-  print Dumper($canvases);
   $self->canvas( $canvases->[ $panel - 1 ] );
 
   return;

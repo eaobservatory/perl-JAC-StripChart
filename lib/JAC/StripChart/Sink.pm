@@ -63,13 +63,14 @@ sub new {
 		   AutoScale => 1,
 		   Yscale => [0,1],
 		   Window => 3600,
+		   PlotTitle => ' ',
 		  }, $class;
 
   if (@_) {
     my %args = @_;
 
     # loop over known important methods
-    for my $k (qw| device growt window autoscale yscale |) {
+    for my $k (qw| device growt window autoscale yscale plottitle |) {
       $snk->$k($args{$k}) if exists $args{$k};
     }
   }
@@ -154,6 +155,18 @@ sub window {
   my $self = shift;
   if (@_) { $self->{Window} = shift; }
   return $self->{Window};
+}
+
+=item B<plottitle>
+
+Plot title for the strip chart.
+
+=cut
+
+sub plottitle {
+  my $self = shift;
+  if (@_) { $self->{PlotTitle} = shift; }
+  return $self->{PlotTitle};
 }
 
 

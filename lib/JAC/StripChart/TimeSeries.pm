@@ -75,7 +75,6 @@ sub new {
 		  DATA => [], # use array of arrays for now
 		  WINDOW => undef, # Number::Interval object
 		  NPTS => 0, # Number of data points within current WINDOW
-		  LASTDATA => [undef, undef],
 		 }, $class;
 
   return $ts;
@@ -360,34 +359,35 @@ sub npts {
 
 }
 
-=item B<lastdata>
+=item B<prevdata>
 
-Store the last data pair plotted as a reference to a (x,y)
-pair. (KLUDGE: Actually just stores whatever is passed to it...!)
+Given a time, return the data pair immediately prior. 
 
-  $ts->lastdata( $lastdata );
+  $xypair = $ts->prevdata( $tval );
 
-Retrieve last data pair, a reference to a pair of values.
-
-  $lastdata = $ts->lastdata;
+Obviously, $tval must be in the same units as the timeseries.
 
 =cut
 
-sub lastdata {
+sub prevdata {
   my $self = shift;
 
   if (@_) {
-    # Check if we're being passed a ref to an array...
-    my $lastdata = shift;
-    if ( ref($lastdata) eq "ARRAY" ) {
-      $self->{LASTDATA} = $lastdata;
-    } else {
-      croak("Error: lastdata argument not a reference to an array");
+    my $tval = shift;
+    my @data = reverse $self->data;
+    my $xval;
+    foreach my $i (0..$#data) {
+      $xval = $data[$i]->[0];
+      last if ($xval < $tval);
     }
-    return;
+    # Return a value slightly smaller than actualt time in order to
+    # guarantee correct return of data within window
+    return 0.99999*$xval; 
   } else {
-    return $self->{LASTDATA};
+    warnings::warnif("Error: no time value provided, returning final point");
+    return ${ $self->data}[-1];
   }
+
 }
 
 =head1 AUTHOR

@@ -53,6 +53,7 @@ use Getopt::Long;
 use Pod::Usage;
 
 use Tk;
+use Tk::NoteBook;
 use JAC::StripChart;
 use JAC::StripChart::Event::Tk;
 
@@ -96,17 +97,24 @@ my $st = new JAC::StripChart( $cfgfile, %init );
 # Create the main window
 my $MW = new MainWindow();
 
-# Frame for control panel
-my $CFrame = $MW->Frame->grid( -row => 0, -column => 0, -sticky => 'nw');
+# Create top panel of control buttons
+my $MenuFrame = $MW->Frame->grid( -row => 0, -column => 0, -sticky => 'nw');
+create_top_panel( $MenuFrame );
 
-# Create some control panel
-create_control_panel( $CFrame );
+# create chart control panel
+my %Attrs;
+my $CFrame = $MW->Frame->grid( -row => 1, -column => 0, -sticky => 'ew' );
+create_control_panel( $CFrame, $st, \%Attrs );
 
 # Frame for stripchart
-my $StFrame = $MW->Frame->grid( -row => 1, -column => 0, -sticky => 'nsew' );
+my $StFrame = $MW->Frame->grid( -row => 2, -column => 0, -sticky => 'nsew' );
 
 # Need to pass in the context frame for Tk canvases (if enabled)
 $st->init( context => $StFrame );
+
+# Now we need to register a callback with the Stripchart update
+# loop so that we can re-read sink configurations
+$st->callback(  sub { &process_attrs(%Attrs) } );
 
 # Now we need to run a Tk main loop but also guarantee
 # that other loops are handled properly
@@ -117,12 +125,117 @@ exit;
 
 # GUI code
 
-sub create_control_panel {
+sub create_top_panel {
   my $w = shift;
 
   $w->Button( -text => 'Exit', -command => sub { exit;})->pack(-side => 'left');
 
 }
+
+sub create_control_panel {
+  my ($w, $st, $attrs ) = @_;
+
+  # Create a root tabbed frame
+  my $NB = $w->NoteBook( -ipadx => 6, -ipady => 6 );
+
+  # loop over all the charts creating a tab for each one
+  # also loop over sinks
+  for my $c ($st->charts) {
+    my $snkcnt;
+    my @sinks = $c->sinks;
+    for my $s (@sinks) {
+      # need a unique key for the hash and a unique label for the tab
+      my $key = $c->chartid . ( defined $snkcnt ? "_$snkcnt" : '');
+      my $dev = $s->device_class;
+      $dev =~ s/JAC::StripChart::Device//;
+      my $label = $key . ( scalar(@sinks) > 1 ? "[$dev]" : '' );
+
+      # create the actual tab
+      my $tab = $NB->add( $key, -label => $key );
+
+      # store the sink in the hash for later retrieval
+      $attrs->{$key} = {};
+      $attrs->{$key}->{SINK} = $s;
+
+      # create the frame in the tab
+      create_chart_control( $tab, $s, $attrs->{$key} );
+      $snkcnt++;
+    }
+  }
+
+  $NB->pack( -expand => 'yes', -fill => 'both' );
+}
+
+# Routine to create the chart control panel
+sub create_chart_control {
+  my ($w, $sink, $attrs) = @_;
+
+  # Read the sink
+  $attrs->{GROWT} = $sink->growt;
+  $attrs->{WINDOW} = $sink->window;
+  $attrs->{AUTOSCALE} = $sink->autoscale;
+  my @yscale = $sink->yscale;
+  $attrs->{YMIN} = $yscale[0];
+  $attrs->{YMAX} = $yscale[1];
+
+  # wrapper frame
+  my $fr = $w->Frame()->pack( -expand => 'yes', -fill => 'both' );
+
+  # Time axis
+  my $ta = $fr->Frame()->pack( -side => 'top' );
+  $ta->Label( -text => 'Time Axis:' )->pack(-side => 'left' );
+  $ta->Radiobutton( -text => 'Full Range',
+		    -value => 1,
+		    -variable => \$attrs->{GROWT} )->pack(-side => 'left');
+  $ta->Radiobutton( -text => 'Window',
+		    -value => 0,
+		    -variable => \$attrs->{GROWT} )->pack(-side => 'left');
+  $ta->Entry( -width => 5,
+	    -textvariable => \$attrs->{WINDOW})->pack(-side => 'left');
+  $ta->Label( -text => 'hrs' )->pack( -side => 'left' );
+
+  # Y axis
+  my $ya = $fr->Frame()->pack( -side => 'top' );
+  $ya->Label( -text => 'Y Scale:' )->pack(-side => 'left' );
+  $ya->Radiobutton( -text => 'Auto',
+		    -value => 1,
+		    -variable => \$attrs->{AUTOSCALE} )->pack(-side => 'left');
+  $ya->Radiobutton( -text => 'Set:',
+		    -value => 0,
+		    -variable => \$attrs->{AUTOSCALE} )->pack(-side => 'left');
+  $ya->Label( -text => 'Ymin' )->pack( -side => 'left' );
+  $ya->Entry( -width => 5,
+	    -textvariable => \$attrs->{YMIN})->pack(-side => 'left');
+  $ya->Label( -text => 'Ymax' )->pack( -side => 'left' );
+  $ya->Entry( -width => 5,
+	    -textvariable => \$attrs->{YMAX})->pack(-side => 'left');
+
+}
+
+# reconfigure the sinks
+
+sub process_attrs {
+  my %attrs = @_;
+
+  # in principal we could only change what has changed
+  # but it is far easier to update everything. This will
+  # not trigger changes in the gui unless things are changed
+  for my $id ( keys %attrs ) {
+    print "Processing ID $id\n";
+    my $this = $attrs{$id};
+    my $sink = $this->{SINK};
+
+    for my $type (qw/ GROWT WINDOW AUTOSCALE / ) {
+      my $method = lc($type);
+      $sink->$method( $this->{$type} );
+      print "\t$type: ". $this->{$type} ."\n";
+    }
+    $sink->yscale( $this->{YMIN}, $this->{YMAX} );
+    print "\tYSCALE: ". $this->{YMIN} . " to ". $this->{YMAX} ."\n";
+  }
+
+}
+
 
 =head1 AUTHOR
 

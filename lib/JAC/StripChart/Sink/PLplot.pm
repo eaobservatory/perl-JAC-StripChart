@@ -141,6 +141,8 @@ sub init {
   # Obtain monitor parameters from Attrs object <- note these are MONITOR attrs
   my @colline;
   my @styline;
+#  my @legline;
+
   for my $monid (keys %attrs) {
     my $attr = $attrs{$monid};
     push ( @colline, $self->_colour_to_index( $attr->linecol ) );
@@ -162,7 +164,6 @@ sub init {
     $styline[$i] = $colline[$i];
     $legline[$i] = '';
   }
-
   # legend position
   my $xlab = 0.65;
   my $ylab = 0.9;
@@ -178,7 +179,7 @@ sub init {
   # subtracted
   my $tmin = 0;
   my $tmax = 0.01; # 0.01 day - start off small and grow
-  my $tjump = 0.2; # Grow t-axis by 10% each time autoscale is necessary
+  my $tjump = 0.1; # Grow t-axis by 10% each time autoscale is necessary
 
   # Determine if autoscale needed. Autoscale = y if result is non zero.
   my $autoy = ( $self->autoscale ? 1 : 0);
@@ -292,17 +293,21 @@ sub _colour_to_index {
   } elsif ($colour =~ /[a-z]/) {
     # Now examine other colours and convert known values to indices
     $colour = "grey" if ($colour eq "gray"); # For those who can't spell...
-    for my $j (0..scalar(@knowncolours)) {
+    for my $j (0..scalar(@knowncolours-1)) {
       if ($knowncolours[$j] eq $colour) {
 	$cindex = $j + 1;
 	last;
       } 
     }
   } else {
-    # Return error if $cindex not set
-    throw JAC::StripChart::Error::BadConfig("Colour '$colour' not recognized") if ($cindex == -1);
+    throw JAC::StripChart::Error::BadConfig("Invalid string for colour");
   }
-
+  # Warn if $cindex not set, and set to default colour
+  # FUTURE: use this to establish new colour table
+  if ($cindex == -1) {
+    warnings::warnif(" Unknown colour, '$colour': setting to default value (yellow)");
+    $cindex = 2;
+  }
   return $cindex;
 }
 
@@ -340,12 +345,13 @@ sub _style_to_index {
 
 =head1 AUTHOR
 
-Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
+Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt> and
+Andy Gibb E<lt>agg@astro.ubc.caE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council.
-All Rights Reserved.
+Copyright (C) 2004 Particle Physics and Astronomy Research Council and
+the University of British Columbia. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software

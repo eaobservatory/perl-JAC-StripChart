@@ -137,10 +137,12 @@ sub add_data {
 	next;
       }
       # Else just store the new data
-      push ($self->{DATA}, $new[$j] );
+      push (@{ $self->{DATA} }, $new[$j] );
       $j++;
     }
   }
+
+  @cleaned = grep { defined $_->[1] } @unclean;
 
   # Sort data and return
   return sort $self->{DATA};
@@ -208,7 +210,7 @@ sub data {
       push (@tdata, $data[$i]->[0]);
       push (@ydata, $data[$i]->[1]);
     }
-    return @tdata, @ydata;
+    return \@tdata, \@ydata;
   } 
 
   return @data;
@@ -238,7 +240,7 @@ sub window {
 
 =item B<bounds>
 
-Retrieve the upper and lower bounds of the current window
+Retrieve the upper and lower t- and y-bounds within the current window
 
   @bounds = $ts->bounds;
 
@@ -247,19 +249,28 @@ Retrieve the upper and lower bounds of the current window
 sub bounds {
   my $self = shift;
 
-  my @bounds = ( $self->data->[0]->[0], $self->data->[-1]->[0] );
+  my ($tdataref, $ydataref) = $self->data(xyarr => 1);
+  my @tdata = @{ $tdataref };
+  my @ydata = @{ $ydataref };
 
-  return @bounds;
+  my $tmin = min( @tdata );
+  my $tmax = max( @tdata );
+  my $ymin = min( @ydata );
+  my $ymax = max( @ydata );
+
+  return ( $tmin, $tmax, $ymin, $ymax );
 }
 
 =head1 AUTHOR
 
-Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
+Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt> and
+Andy Gibb E<lt>agg@astro.ubc.caE<gt>
+
 
 =head1 COPYRIGHT
 
-Copyright (C) 2004 Particle Physics and Astronomy Research Council.
-All Rights Reserved.
+Copyright (C) 2004 Particle Physics and Astronomy Research Council and
+the University of British Columbia. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software

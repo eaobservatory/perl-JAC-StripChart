@@ -147,17 +147,25 @@ sub _style_to_index {
   my $style = shift;
   my $stindex = 4;
 
-  if ($style eq "solid") {
-    $stindex = 1;
-  } elsif ($style eq "dot" || $style eq "dotted") {
-    $stindex = 2;
-  } elsif ($style eq "dash" || $style eq "dashed") {
-    $stindex = 3;
-  } elsif ($style eq "longdash" || $style eq "ldash") {
-    $stindex = 4;
+  if ($style =~ /\d/) {
+    throw JAC::StripChart::Error::BadConfig("Line style does not exist - must lie between 1 and 4") 
+      if ($style > 4 || $style < 1);
+    $stindex = $style;
+  } elsif ($style =~ /[a-z]/ ) {
+    if ($style eq "solid") {
+      $stindex = 1;
+    } elsif ($style eq "dot" || $style eq "dotted") {
+      $stindex = 2;
+    } elsif ($style eq "dash" || $style eq "dashed") {
+      $stindex = 3;
+    } elsif ($style eq "longdash" || $style eq "ldash") {
+      $stindex = 4;
+    } else {
+      print " Unknown LineStyle - setting style to solid \n";
+      $stindex = 1;
+    }
   } else {
-    print " Unknown LineStyle - setting style to solid \n";
-    $stindex = 1;
+    throw JAC::StripChart::Error::BadConfig("Invalid string for line style");
   }
 
   return $stindex;
@@ -182,22 +190,24 @@ sub _sym_to_index {
   my $sym = shift;
   my $symindex = 1;
 
+  return;
+
   # Prefix with `f' to get filled versions
-  my %knownsymbols = ( square => 841,
-                       dot => 729,
-                       plus => 845,
-                       asterisk => 847,
-                       circle => 840,
-                       cross => 846,
-                       times => 846,
-                       x => 846,
-                       triangle => 842,
-                       diamond => 843,
-                       star => 844,
-                       fcircle => 850,
-                       fsquare => 851,
-                       ftriangle => 852,
-                       fstar => 856 );
+  my %knownsymbols = ( square => '841',
+                       dot => '729',
+                       plus => '845',
+                       asterisk => '847',
+                       circle => '840',
+                       cross => '846',
+                       times => '846',
+                       x => '846',
+                       triangle => '842',
+                       diamond => '843',
+                       star => '844',
+                       fcircle => '850',
+                       fsquare => '851',
+                       ftriangle => '852',
+                       fstar => '856' );
 
   if ($sym =~ /\d/) {
     throw JAC::StripChart::Error::BadConfig("Symbol index not defined ")

@@ -57,6 +57,7 @@ sub new {
 
   # Create object
   my $mon = bless {
+		   MonID => '',
 		   IndexObject => undef,
 		   Column => undef,
 		   Filter => {},
@@ -66,7 +67,7 @@ sub new {
     my %args = @_;
 
     # loop over known important methods
-    for my $k (qw| indexfile column filter|) {
+    for my $k (qw| monid indexfile column filter|) {
       $mon->$k($args{$k}) if exists $args{$k};
     }
   }
@@ -79,6 +80,20 @@ sub new {
 =head2 Accessor Methods
 
 =over 4
+
+=item B<monid>
+
+String that can be used to describe the monitor (eg as a plot legend).
+
+=cut
+
+sub monid {
+  my $self = shift;
+  if (@_) {
+    $self->{MonID} = shift;
+  }
+  return $self->{MonID};
+}
 
 =item B<indexfile>
 

@@ -346,7 +346,7 @@ sub read_config {
   # Attach monitors to charts and determine monitor attributes
   # Loop over all charts, and then over all monitors for that chart
   my %attrdefn;
-  my %attrargs;
+  my %attrargs; # keys are monitor IDs, values ref to list of attrs to be set
   for my $cht (@charts) {
     my $c = $cht->chartid;
 

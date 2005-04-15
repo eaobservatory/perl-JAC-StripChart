@@ -118,8 +118,8 @@ Plot attributes associated with each monitor. This controls
 whether symbols and/or lines should be plotted and the color of the
 lines/symbols. Not all plot devices support all attributes.
 
-  $monattr = $chart->monattrs( $monid );
-  $chart->monattrs( $monid => $monattr, $monid2 => $monattr2 );
+  $monattr = $chart->monattrs( $monid );  # returns value of attribute specified by $monid
+  $chart->monattrs( $monid => $monattr, $monid2 => $monattr2 ); # sets the attributes
 
   %monattr = $chart->monattrs();
 

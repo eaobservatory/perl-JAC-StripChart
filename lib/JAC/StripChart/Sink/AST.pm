@@ -151,6 +151,12 @@ sub init {
 
   my $fr;
   my $shared = "title=StripChart,label(1)=Time,label(2)=Flux,unit(2)=Jy";
+  # KLUDGE: assumes that data being plotted are arriving TODAY and
+  # data files contain no older data! Really need to use oldest point
+  # to be plotted for each chart
+  use Time::Piece;
+  my $today = gmtime; 
+  my $refdate = $today->ymd;
   if ($tunits eq 'days' || $tunits eq 'unit') {
     $self->timemap->output( $tunits );
 
@@ -158,7 +164,7 @@ sub init {
     # will be set
     my $unit;
     if ($tunits eq 'days' ) {
-      $unit = 'frac UT day';
+      $unit = 'frac UT day since midnight '. $refdate;
     } else {
       $unit = 'MJD';
     }
@@ -171,7 +177,7 @@ sub init {
     $self->timemap->output( $tunits );
 
     # Create the plotting frame
-    $fr = new Starlink::AST::Frame( 2, "$shared,unit(1)=UT Hours" );
+    $fr = new Starlink::AST::Frame( 2, "$shared,unit(1)=UT Hours since midnight $refdate" );
 
   } elsif ($tunits eq 'radians' ) {
 
@@ -189,7 +195,7 @@ sub init {
     my $yaxis = new Starlink::AST::Frame(1, "" );
 
     # combine into a 2D compound frame
-    $fr = new Starlink::AST::CmpFrame( $ra, $yaxis, "$shared,unit(1)=UT Hours" );
+    $fr = new Starlink::AST::CmpFrame( $ra, $yaxis, "$shared,unit(1)=UT Hours since midnight $refdate" );
 
   } else {
     throw JAC::StripChart::Error::FatalError("Unknown output format for map: $tunits");
@@ -257,7 +263,7 @@ sub putData {
   if (!$window || (defined $window && $window <= 0)) {
     # Check if ts x-limits are equal...
     if ($tsxmin == $tsxmax) {
-      my $dayfrac = 1 / 24; # 1 hour
+      my $dayfrac = 0.1 / 24; # 1 hour
       if ($tsxmin == 0) { # Catch value = 0 case
 	$plxmin = 0;
 	$plxmax = $dayfrac;
@@ -266,7 +272,8 @@ sub putData {
 	# bounds by a fraction of a day not a fraction of the MJD
 	# if we have min == max
 	$plxmax = $tsxmax + $dayfrac;
-	$plxmin = max( int($tsxmin), ($tsxmin - $dayfrac) );
+#	$plxmin = max( int($tsxmin), ($tsxmin - $dayfrac) );
+	$plxmin = $tsxmin;
       }
     } else {
       $plxmin = $tsxmin;
@@ -497,6 +504,7 @@ sub putData {
   my $x0 = 0.8; # Hack to deal with Tk vs PGPLOT concepts of 0->1
   my $y0 = 0.88;
   my @keys = $self->monitor_ids;
+  my ($plline, $plsym);
   foreach my $mon (@keys) {
     my $plotattr = $self->attr($mon);
     # Plot legend...
@@ -523,25 +531,42 @@ sub putData {
     my $xleg = [ $xpt1, ($xpt1 - 0.075) ];
     my $ymid = 0.5 * ( $lbox->[1] + $ubox->[1] );
     my $yleg = [ $ymid, $ymid ];
+    # Determine whether to plot symbols or lines
+    $plline = ( ($plotattr->linestyle eq '0' || lc($plotattr->linestyle) =~ "no") ? 0 : 1 );
+    $plsym = ( ($plotattr->symbol eq '0' || lc($plotattr->symbol) =~ "no") ? 0 : 1 );
+    throw  JAC::StripChart::Error::BadConfig("Must specify either a symbol or a linestyle for monitor $mon on chart $chartid") 
+      unless ($plline || $plsym);
+
     # Plot legend
-    $plt->Set("colour(curves)", $linecol);
-    $plt->Set("style(curves)", $linestyle);
-    $plt->PolyCurve($xleg, $yleg);
-    $plt->Set("colour(markers)", $symcol);
-    $plt->Mark($symbol, $xleg, $yleg);
+    if ($plline) {
+      $plt->Set("colour(curves)", $linecol);
+      $plt->Set("style(curves)", $linestyle);
+      $plt->PolyCurve($xleg, $yleg);
+    }
+    if ($plsym) {
+      $plt->Set("colour(markers)", $symcol);
+      $plt->Mark($symbol, $xleg, $yleg);
+    }
     $plt->Set("Current=2");
   }
 
+  # Plot the data using the requested attributes (if applicable)
+  $plline = ( ($attr->linestyle eq '0' || lc($attr->linestyle) =~ "no") ? 0 : 1 );
+  $plsym = ( ($attr->symbol eq '0' || lc($attr->symbol) =~ "no") ? 0 : 1 );
 
-  # Plot the data using the requested attributes
+  throw  JAC::StripChart::Error::BadConfig("Must specify either a symbol or a linestyle for monitor $monid on chart $chartid") 
+    unless ($plline || $plsym);
+
   if ($npts > 0) {
-    my $symcol = $self->_colour_to_index($attr->symcol);
-    my $symbol = $self->_sym_to_index($attr->symbol);
-    $plt->Set("colour(markers)",$symcol);
     my @mapped = $self->timemap->do_map( @$plxref );
-    $plt->Mark($symbol, \@mapped, $plyref);
+    if ($plsym) {
+      my $symcol = $self->_colour_to_index($attr->symcol);
+      my $symbol = $self->_sym_to_index($attr->symbol);
+      $plt->Set("colour(markers)",$symcol);
+      $plt->Mark($symbol, \@mapped, $plyref);
+    }
 
-    if ($npts > 1) {
+    if ($npts > 1 && $plline) {
       my $linecol = $self->_colour_to_index($attr->linecol);
       my $linestyle = $self->_style_to_index($attr->linestyle);
       $plt->Set("colour(curves)", $linecol);
@@ -644,7 +669,7 @@ sub _style_to_index {
 
   if ($style =~ /\d/) {
     throw JAC::StripChart::Error::BadConfig("Line style index does not exist - must lie between 1 and 5") 
-      if ($style > 5 || $style < 1);
+      if ($style > 5 || $style < 0);
     $stindex = $style;
   } elsif ($style =~ /[a-z]/) {
     if ($style eq "solid") {
@@ -657,6 +682,8 @@ sub _style_to_index {
       $stindex = 2;
     } elsif ($style eq "dash-dot-dot" || $style eq "dddash") {
       $stindex = 5;
+    } elsif ($style =~ "no") {
+      $stindex = 0;
     }
   } else {
     print " Unknown LineStyle - setting style to solid \n";
@@ -706,8 +733,12 @@ sub _sym_to_index {
       if ($sym > 31 || $sym < -4);
     $symindex = $sym;
   } elsif ($sym =~ /[a-z]/) {
-    foreach my $symkey (keys %knownsymbols) {
-      $symindex = $knownsymbols{$symkey} if ($symkey eq $sym);
+    if ($sym =~ "no") {
+      $symindex = 0;
+    } else {
+      foreach my $symkey (keys %knownsymbols) {
+	$symindex = $knownsymbols{$symkey} if ($symkey eq $sym);
+      }
     }
   }
   if ($symindex == -10) {

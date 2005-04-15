@@ -48,10 +48,10 @@ sub new {
 
   # Create object
   my $attrs = bless {
-		     LineCol => 'red',
-		     SymCol  => 'yellow',
-		     Symbol  => 'circle',
+		     LineCol => 'yellow',
 		     LineStyle => 'solid',
+		     SymCol  => 'green',
+		     Symbol  => 'circle',
 		    }, $class;
 
   if (@_) {

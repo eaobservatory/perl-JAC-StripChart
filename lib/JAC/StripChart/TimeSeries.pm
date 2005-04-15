@@ -551,7 +551,8 @@ sub prevdata {
   }
 }
 
-=back
+# Complains about `unmatched =back' on make...
+#=back
 
 =begin _PRIVATE_METHODS_
 

@@ -232,6 +232,7 @@ used to determine whether the data file should be re-read.
 =cut
 
 sub last_read {
+# Index by $key...
   my $self = shift;
   if (@_) { 
     $self->{LastRead} = shift; 
@@ -355,7 +356,9 @@ sub getData {
 #  print $reftime ." ". $self->last_write($self->filename) ."\n";
 
 #  return if ($self->last_read > $self->last_write($self->filename) && $reftime > $self->last_write($self->filename));
-  return if ($self->last_read > $self->last_write($self->filename));
+
+# Index last_read by $key
+#  return if ($self->last_read > $self->last_write($self->filename));
 
   # Read new data and store in @newdata
   my @newdata = $self->readsimple( $key );

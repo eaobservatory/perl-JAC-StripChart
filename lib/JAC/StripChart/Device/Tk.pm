@@ -58,6 +58,8 @@ Supported options are:
 By default, the canvas is created with a black background in order to
 match the default PGPLOT and PLplot states.
 
+If C<Tk::Zinc> is installed, it is used in preference to a C<Tk::Canvas>.
+
 =cut
 
 sub new {
@@ -76,6 +78,11 @@ sub new {
     $dev->context( $context );
   }
 
+  # is Tk::Zinc avaialable?
+  my $usezinc;
+  eval { require Tk::Zinc; };
+  if ($@) { $usezinc = 0; }
+
   # we now need to create the individual canvas objects
   # To support multiple objects in X and Y we create a frame and then
   # fill it in using the grid packer
@@ -92,6 +99,7 @@ sub new {
   # calculate the width and height of each canvas
   my %cdims;
   my @dims = $dev->dims;
+
   $cdims{"-width"} = $dims[0] / $nx if $dims[0] > 0;
   $cdims{"-height"} = $dims[1] / $ny if $dims[1] > 0;
 
@@ -99,12 +107,20 @@ sub new {
   for my $i ( 1 .. $nx ) {
     for my $j ( 1 .. $ny ) {
       my $index = $dev->_ij_to_index( $i, $j );
-      $canv[ $index ] = $parent->Canvas( -background => 'black',
-					 %cdims,
-				       )->grid( -column => ($i-1),
-						-row => ($j-1),
-						-sticky => 'nsew',
-					      );
+      if (!$usezinc) {
+	$canv[ $index ] = $parent->Canvas( -background => 'black',
+					   %cdims,
+					 );
+      } else {
+	$canv[ $index ] = $parent->Zinc( -backcolor => 'black',
+					   %cdims,
+					 );
+      }
+
+      $canv[ $index ]->grid( -column => ($i-1),
+			     -row => ($j-1),
+			     -sticky => 'nsew',
+			   );
     }
   }
 

@@ -221,17 +221,17 @@ sub process_attrs {
   # but it is far easier to update everything. This will
   # not trigger changes in the gui unless things are changed
   for my $id ( keys %attrs ) {
-    print "Processing ID $id\n";
+#    print "Processing ID $id\n";
     my $this = $attrs{$id};
     my $sink = $this->{SINK};
 
     for my $type (qw/ GROWT WINDOW AUTOSCALE / ) {
       my $method = lc($type);
       $sink->$method( $this->{$type} );
-      print "\t$type: ". $this->{$type} ."\n";
+#      print "\t$type: ". $this->{$type} ."\n";
     }
     $sink->yscale( $this->{YMIN}, $this->{YMAX} );
-    print "\tYSCALE: ". $this->{YMIN} . " to ". $this->{YMAX} ."\n";
+#    print "\tYSCALE: ". $this->{YMIN} . " to ". $this->{YMAX} ."\n";
   }
 
 }

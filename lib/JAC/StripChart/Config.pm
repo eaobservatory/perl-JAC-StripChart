@@ -181,8 +181,8 @@ sub read_config {
   # sort the indices
   @index = sort @index;
 
-  use Data::Dumper;
-  print Dumper(\@index);
+#  use Data::Dumper;
+#  print Dumper(\@index);
 
   # get the max index
   my $maxind = $index[-1];
@@ -194,7 +194,7 @@ sub read_config {
     if $maxind > 64;
 
 
-  print Dumper($data{globals});
+#  print Dumper($data{globals});
 
   # Do we have a specified number of plots for display?
   # And do we care if some charts won't be plotted?
@@ -236,8 +236,8 @@ sub read_config {
   # Store the number in X and Y
   $self->nxy( $nx, $ny );
 
-  print "NX = $nx   NY = $ny \n";
-  print Dumper($self);
+#  print "NX = $nx   NY = $ny \n";
+#  print Dumper($self);
 
   # Get the name of the Sink class to be used. This is in global
   # but defaults to ::Sink. It can be overriden.
@@ -297,7 +297,7 @@ sub read_config {
 
     # and associate the sinks with the chart
     my @snkobj = map { $_->new( %plotdefn ) } @sinks;
-    print Dumper(@snkobj);
+#    print Dumper(@snkobj);
     $charts[-1]->sinks( @snkobj );
 
 #    print Dumper(@charts);

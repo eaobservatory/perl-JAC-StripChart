@@ -186,7 +186,7 @@ sub tkupdate_chart {
   my $st = shift;
   $context->after( JAC::StripChart::POLL_INTERVAL,
 		   sub { $st->update();
-			 print "Updating...\n";
+#			 print "Updating...\n";
 			 $context->after(JAC::StripChart::POLL_INTERVAL,
 					 [\&tkupdate_chart,
 					  $context, $st]);

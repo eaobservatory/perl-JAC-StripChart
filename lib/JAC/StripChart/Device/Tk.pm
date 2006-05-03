@@ -79,7 +79,7 @@ sub new {
   }
 
   # is Tk::Zinc avaialable?
-  my $usezinc;
+  my $usezinc = 1;
   eval { require Tk::Zinc; };
   if ($@) { $usezinc = 0; }
 

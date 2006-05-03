@@ -43,7 +43,7 @@ sub canvas {
   my $self = shift;
   if (@_) {
     my $arg = shift;
-    throw JAC::StripChart::Error::BadClass( "Argument must be a Tk::Canvas object") unless UNIVERSAL::isa( $arg, "Tk::Canvas");
+    throw JAC::StripChart::Error::BadClass( "Argument must be a Tk::Canvas object") unless ( UNIVERSAL::isa( $arg, "Tk::Canvas") || UNIVERSAL::isa( $arg, "Tk::Zinc" ) );
     $self->{CANVAS} = $arg;
   }
   return $self->{CANVAS};
@@ -94,7 +94,11 @@ sub clear {
   my $self = shift;
   $self->select;
   my $canv = $self->canvas;
-  $canv->delete( 'all' );
+  if( $canv->isa( "Tk::Canvas" ) ) {
+    $canv->delete( 'all' );
+  } elsif( $canv->isa( "Tk::Zinc" ) ) {
+    $canv->remove( 'all' );
+  }
 }
 
 

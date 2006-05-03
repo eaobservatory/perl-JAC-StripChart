@@ -4,6 +4,7 @@ use strict;
 WriteMakefile( 
                'NAME'           => 'JAC::StripChart',
                'VERSION'        => '0.01',
+                EXE_FILES       => [ qw/xstripchart stripchart/ ],
                'PREREQ_PM'      => {
 				    'Graphics::PLplot' => '0.01',
                                    },

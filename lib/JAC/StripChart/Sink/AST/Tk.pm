@@ -69,7 +69,7 @@ sub _grfselect {
   $plt->tk( $dev->canvas );
   my $w = $dev->canvas->cget( '-width' );
   my $h = $dev->canvas->cget( '-height' );
-  print "HW = ($w, $h)\n";
+#  print "HW = ($w, $h)\n";
   return;
 }
 

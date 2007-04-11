@@ -1,0 +1,114 @@
+#!perl
+
+=head1 NAME
+
+testsimple - Test Simple file read
+
+=head1 SYNOPSIS
+
+ testsimple -refresh 1 > xxx.
+
+=head1 DESCRIPTION
+
+Writes data to standard out at the specified refresh rate.
+
+=head1 OPTIONS
+
+The following options are supported:
+
+=over 4
+
+=item B<-refresh>
+
+Time between writing a line to the output. Units are seconds. Default is 1. 
+
+=item B<-help>
+
+Print help information.
+
+=item B<-version>
+
+Print version number.
+
+=item B<-man>
+
+Print the documentation to STDOUT.
+
+=back
+
+=cut
+
+use strict;
+use warnings;
+use Getopt::Long;
+use Pod::Usage;
+use Time::HiRes qw/ sleep gettimeofday tv_interval/;
+
+use JAC::StripChart::Monitor::Random;
+
+$| = 1; # unbuffered
+
+# Options
+my ($help, $man, $version, $refresh);
+my $status = GetOptions("help" => \$help,
+                        "man" => \$man,
+                        "refresh=s" => \$refresh,
+                        "version" => \$version,
+                       );
+
+pod2usage(1) if $help;
+pod2usage(-exitstatus => 0, -verbose => 2) if $man;
+
+if ($version) {
+  my $id = '$Id$ ';
+  print "Simple data source for stripchart\n";
+  print " CVS revision: $id\n";
+  exit;
+}
+
+$refresh = 1 if !defined $refresh;
+
+# Enter loop
+my $random = new JAC::StripChart::Monitor::Random( randmin => 5,
+						   randmax => 20);
+
+#my $reftime = [gettimeofday];
+while (1) {
+    my @data = $random->getData( );
+    my @data2 = $random->getData( );
+    for my $i ($#data) {
+	my $d = $data[$i];
+	my $d2 = $data2[$i];
+	print $d->[0], " ", $d->[1] ." ".$d2->[1]."\n";
+    }
+    sleep($refresh);
+#    my $interval = tv_interval($reftime);
+#    print "interval = $interval\n";
+#    $reftime = [gettimeofday];
+}
+
+=head1 AUTHOR
+
+Tim Jenness E<lt>t.jenness@jach.hawaii.eduE<gt>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2007 Science and Technology Facilities Council. All
+Rights Reserved.
+
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful,but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program; if not, write to the Free Software Foundation, Inc., 59 Temple
+Place,Suite 330, Boston, MA  02111-1307, USA
+
+=cut
+
+1;

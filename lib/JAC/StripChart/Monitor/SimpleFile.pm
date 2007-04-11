@@ -33,6 +33,7 @@ use Data::Dumper;
 use JAC::StripChart::Error;
 use File::Spec;
 use File::stat;
+use Fcntl qw/ SEEK_SET /;
 
 # Need MJD conversion
 use Astro::SLA;
@@ -82,6 +83,7 @@ sub new {
 		   SimpleFile => undef,
 		   MonPos => {},
 		   LastRead => 0,
+		   FHTELL => {},
 		   Ncols => undef,
 		   TCol => undef,
 		   YCol => undef,
@@ -399,6 +401,23 @@ sub readsimple {
   my $tformat = $self->tformat;
   my $id = $self->id;
 
+  # Since we know the size of the file last time and can work out the size of the file
+  # now, we know whether to even bother reading anything
+  my $filesize = stat( $file )
+    or throw JAC::StripChart::Error::FileNotFound("Error doing stat on file $file: $!");
+
+  # determine last read position for this column and modify it if need be
+  # - we may need to modify things so we cache internally all overlapping data to handle
+  # remove reads from the same file just because two pieces of information are required
+  my $fhpos = $self->_filepos_last_read($key);
+  if ($filesize == $fhpos) {
+    # no change to file size so don't even read it
+    return ();
+  } elsif ($filesize < $fhpos) {
+    # file has shrunk - probably a new file so reread from the top
+    $fhpos = 0;
+  }
+
   # Open the file
   open my $handle, "< $file"
     or throw JAC::StripChart::Error::FileNotFound("Error opening file $file: $!");
@@ -411,6 +430,9 @@ sub readsimple {
   } else {
     $oldest = $self->oldest_monpos;
   }
+
+  # Set the read position on the filehandle
+  seek $handle, $fhpos, SEEK_SET if ($fhpos > 0);
 
   # Read successive lines from file
   while (my $line = <$handle>) {
@@ -428,6 +450,9 @@ sub readsimple {
 # Set monitor position to last line in file
     $self->_monitor_posn( $key, $data[$tcol-1]);
   }
+
+  # Retrieve the file handle position (this may point to a partial line)
+  $self->_filepos_last_read( $key, tell( $handle ) );
 
   close($handle);
   # update the last_read time
@@ -464,6 +489,59 @@ sub _genkey {
   my $self = shift;
   return join("_",@_);
 }
+
+=item B<last_write>
+
+Internal method to determine the time a file was last written to. Uses the 
+File::stat and Date::Format modules.
+
+  my $last_write_time = $self->last_write($self->filename);
+
+=cut
+
+sub last_write {
+  my $self = shift;
+  my $file = shift;
+  my $inode = stat($file);
+  my $writetime = $inode->mtime;
+  my $timeformat = "%Y:%m:%d:%T";
+  my $ymdtime = time2str($timeformat,$writetime,"GMT");
+  my $lastwritemjd = $self->_convert_to_mjd($ymdtime, "ymd");
+  return $lastwritemjd;
+}
+
+=item B<_filepos_last_read>
+
+This (private) hash contains information on the position (in bytes) into
+the file last time it was read by the supplied key.
+
+Valid keys are derived using the C<_genkey> method.
+
+  $i->_filepos_last_read( $key, $newval );
+  $curval = $i->_filepos_last_read( $key );
+  %allvals = $i->_filepos_last_read();
+
+In the second example, 0 is returned rather than undef if no
+key is present.
+
+=cut
+
+sub _filepos_last_read {
+  my $self = shift;
+  if (@_) {
+    my $key = shift;
+    if (@_) {
+      $self->{FHTELL}->{$key} = shift;
+    } else {
+      return 0;
+      my $curval = $self->{FHTELL}->{$key};
+      return (defined $curval ? $curval : 0);
+    }
+  } else {
+    return %{ $self->{FHTELL} };
+  }
+}
+
 
 =item B<_checkparams>
 
@@ -603,26 +681,6 @@ sub _abs_path {
 
 }
 
-=item B<last_write>
-
-Internal method to determine the time a file was last written to. Uses the 
-File::stat and Date::Format modules.
-
-  my $last_write_time = $self->last_write($self->filename);
-
-=cut
-
-sub last_write {
-  my $self = shift;
-  my $file = shift;
-  my $inode = stat($file);
-  my $writetime = $inode->mtime;
-  my $timeformat = "%Y:%m:%d:%T";
-  my $ymdtime = time2str($timeformat,$writetime,"GMT");
-  my $lastwritemjd = $self->_convert_to_mjd($ymdtime, "ymd");
-  return $lastwritemjd;
-}
-
 =back
 
 =head1 AUTHOR
@@ -633,7 +691,8 @@ Andy Gibb E<lt>agg@astro.ubc.caE<gt>
 =head1 COPYRIGHT
 
 Copyright (C) 2004 Particle Physics and Astronomy Research Council and
-the University of British Columbia. All Rights Reserved.
+the University of British Columbia. Copyright (C) 2007 Science and
+Technology Facilities Council. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software

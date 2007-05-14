@@ -59,10 +59,11 @@ sub new {
 
   # Create object
   my $cfg = bless {
-		   FileName => undef,
-		   NXY => [],
-		   Charts => [],
-		  }, $class;
+                   FileName => undef,
+                   NXY => [],
+                   TABS => 0,
+                   Charts => [],
+                  }, $class;
 
   if (@_) {
     $cfg->filename( @_ );
@@ -133,6 +134,20 @@ sub nxy {
     @{ $self->{NXY} } = @_;
   }
   return @{ $self->{NXY} };
+}
+
+=item B<tabs>
+
+Whether or not the main plot window will have tabs.
+
+=cut
+
+sub tabs {
+  my $self = shift;
+  if( @_ ) {
+    $self->{TABS} = shift;
+  }
+  return $self->{TABS};
 }
 
 =back
@@ -238,6 +253,14 @@ sub read_config {
 
 #  print "NX = $nx   NY = $ny \n";
 #  print Dumper($self);
+
+  # Handle tabs.
+  if( exists( $data{globals} ) &&
+      exists( $data{globals}->{tabs} ) ) {
+    $self->tabs( $data{globals}->{tabs} );
+  } else {
+    $self->tabs( 0 );
+  }
 
   # Get the name of the Sink class to be used. This is in global
   # but defaults to ::Sink. It can be overriden.

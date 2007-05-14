@@ -210,6 +210,9 @@ sub init {
   # put this in Args, unless nxy is already present
   $args{nxy} = \@nxy unless exists $args{nxy};
 
+  # Find out about tabs.
+  $args{tabs} = $cfg->tabs;
+
   # load all the classes and instantiate the main control class for each device
   my %dev;
   for my $d (keys %devlist) {

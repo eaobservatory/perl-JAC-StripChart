@@ -49,6 +49,7 @@ Supported options are:
   nxy =>   Ref to array indicating the number of x and y subplots
   context => Context in which the plot should be created.
   dims => Ref to array indicating the output chart dimensions in pixels
+  tabs => Should tabs be used for subplots? Only available for Tk.
 
 The context will be specific to a particular device so a device should
 check that a context is relevant rather than assuming it is
@@ -69,12 +70,14 @@ sub new {
 		   CONTEXT => undef,
 		   NXY => [1,1],
 		   DIMS => [0,0],
+                   TABS => 0,
 		  }, $class;
 
   # Read the required x,y subplots and other arguments
   @{$dev->{NXY}} = @{ $args{nxy} } if exists $args{nxy};
   @{$dev->{DIMS}} = @{ $args{dims} } if exists $args{dims};
   $dev->context( $args{context} ) if exists $args{context};
+  $dev->tabs( $args{tabs} ) if exists $args{tabs};
 
   return $dev;
 }
@@ -144,6 +147,21 @@ sub context {
   my $self = shift;
   if (@_) { $self->{CONTEXT} = shift; }
   return $self->{CONTEXT};
+}
+
+=item B<tabs>
+
+Whether or not to display subplots in tabs. This is only used for the
+Tk interface, and defaults to false.
+
+=cut
+
+sub tabs {
+  my $self = shift;
+  if( @_ ) {
+    $self->{TABS} = shift;
+  }
+  return $self->{TABS};
 }
 
 =item B<event_class>

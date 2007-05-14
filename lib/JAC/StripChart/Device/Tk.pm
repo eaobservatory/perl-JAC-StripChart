@@ -29,6 +29,7 @@ use base qw/ JAC::StripChart::Device /;
 
 use Tk;
 use Tk::Canvas;
+use Tk::NoteBook;
 
 use JAC::StripChart::Device::Subplot::Tk;
 use JAC::StripChart::Error;
@@ -65,67 +66,64 @@ If C<Tk::Zinc> is installed, it is used in preference to a C<Tk::Canvas>.
 sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
+
   my $dev = $class->SUPER::new( @_ );
 
   # obtain the context
   my $context = $dev->context;
 
   # see if we have a valid context
-  if (!defined $context || !UNIVERSAL::isa($context, "Tk::Frame") ) {
+  if ( ! defined $context || ! ref( $context ) eq 'ARRAY' ) {
 
     # Create one
     $context = MainWindow->new;
     $dev->context( $context );
   }
 
-  # is Tk::Zinc avaialable?
+  # is Tk::Zinc available?
   my $usezinc = 1;
   eval { require Tk::Zinc; };
   if ($@) { $usezinc = 0; }
 
-  # we now need to create the individual canvas objects
-  # To support multiple objects in X and Y we create a frame and then
-  # fill it in using the grid packer
-
-  # First create a frame
-  my $parent = $context->Frame();
-
-  # some where to store the canvas objects
+  # An array to hold the canvas objects once we've created them.
   my @canv;
 
-  # Find the requested number of charts
-  my ($nx, $ny ) = $dev->nxy;
+  my $index = 0;
 
-  # calculate the width and height of each canvas
-  my %cdims;
-  my @dims = $dev->dims;
+  # Now, for each context item...
+  foreach my $context_item ( @$context ) {
 
-  $cdims{"-width"} = $dims[0] / $nx if $dims[0] > 0;
-  $cdims{"-height"} = $dims[1] / $ny if $dims[1] > 0;
+    # we now need to create the individual canvas objects
+    # To support multiple objects in X and Y we create a frame and then
+    # fill it in using the grid packer
 
-  # loop over nx ny
-  for my $i ( 1 .. $nx ) {
-    for my $j ( 1 .. $ny ) {
-      my $index = $dev->_ij_to_index( $i, $j );
-      if (!$usezinc) {
-	$canv[ $index ] = $parent->Canvas( -background => 'black',
-					   %cdims,
-					 );
-      } else {
-	$canv[ $index ] = $parent->Zinc( -backcolor => 'black',
-					   %cdims,
-					 );
-      }
+    # First create a frame
+    my $parent = $context_item->Frame();
 
-      $canv[ $index ]->grid( -column => ($i-1),
-			     -row => ($j-1),
-			     -sticky => 'nsew',
-			   );
+    # calculate the width and height of each canvas
+    my %cdims;
+    my @dims = $dev->dims;
+
+    $cdims{"-width"} = $dims[0] if $dims[0] > 0;
+    $cdims{"-height"} = $dims[1] if $dims[1] > 0;
+
+    if (!$usezinc) {
+      $canv[ $index ] = $context_item->Canvas( -background => 'black',
+                                         %cdims,
+                                       );
+    } else {
+      $canv[ $index ] = $context_item->Zinc( -backcolor => 'black',
+                                       %cdims,
+                                     );
     }
-  }
 
-  # pack it into the "context"
-  $parent->pack( -expand => 1, -fill => 'both');
+    $canv[ $index ]->pack( -expand => 1, -fill => 'both' );
+
+    # pack it into the "context"
+    $context_item->pack( -expand => 1, -fill => 'both');
+
+    $index++;
+  }
 
   # store the canvas objects
   $dev->devid( \@canv );

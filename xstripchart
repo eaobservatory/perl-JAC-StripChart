@@ -96,21 +96,29 @@ my $st = new JAC::StripChart( $cfgfile, %init );
 
 # Create the main window
 my $MW = new MainWindow();
+$MW->geometry( '800x640' );
 
 # Create top panel of control buttons
-my $MenuFrame = $MW->Frame->grid( -row => 0, -column => 0, -sticky => 'nw');
+my $MenuFrame = $MW->Frame->pack( -expand => 0,
+                                  -anchor => 'n',
+                                  -fill => 'x',
+                                  -side => 'top',
+                                );
+
 create_top_panel( $MenuFrame );
 
 # create chart control panel
 my %Attrs;
-my $CFrame = $MW->Frame->grid( -row => 1, -column => 0, -sticky => 'ew' );
-create_control_panel( $CFrame, $st, \%Attrs );
+my $CFrame = $MW->Frame->pack( -expand => 1,
+                               -fill => 'both',
+                               -anchor => 'n',
+                               -side => 'top',
+                             );
 
-# Frame for stripchart
-my $StFrame = $MW->Frame->grid( -row => 2, -column => 0, -sticky => 'nsew' );
+my @frames = create_control_panel( $CFrame, $st, \%Attrs );
 
 # Need to pass in the context frame for Tk canvases (if enabled)
-$st->init( context => $StFrame );
+$st->init( context => \@frames );
 
 # Now we need to register a callback with the Stripchart update
 # loop so that we can re-read sink configurations
@@ -138,6 +146,9 @@ sub create_control_panel {
   # Create a root tabbed frame
   my $NB = $w->NoteBook( -ipadx => 6, -ipady => 6 );
 
+  # Array to hold the frames that will be returned.
+  my @frames;
+
   # loop over all the charts creating a tab for each one
   # also loop over sinks
   for my $c ($st->charts) {
@@ -158,12 +169,16 @@ sub create_control_panel {
       $attrs->{$key}->{SINK} = $s;
 
       # create the frame in the tab
-      create_chart_control( $tab, $s, $attrs->{$key} );
+      my $frame = create_chart_control( $tab, $s, $attrs->{$key} );
       $snkcnt++;
+
+      push @frames, $frame;
+
     }
   }
 
   $NB->pack( -expand => 'yes', -fill => 'both' );
+  return @frames;
 }
 
 # Routine to create the chart control panel
@@ -210,6 +225,10 @@ sub create_chart_control {
   $ya->Entry( -width => 5,
 	    -textvariable => \$attrs->{YMAX})->pack(-side => 'left');
 
+  # Frame for plots.
+  my $frame = $fr->Frame();
+
+  return $frame;
 }
 
 # reconfigure the sinks

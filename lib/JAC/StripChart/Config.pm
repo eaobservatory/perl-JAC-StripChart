@@ -33,7 +33,7 @@ use JAC::StripChart::Chart;
 use Config::IniFiles;
 
 use vars qw/ $VERSION /;
-$VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
+$VERSION = sprintf("%d", q$Revision$ =~ /(\d+)/);
 
 my $CHART_PREFIX = "chart";
 

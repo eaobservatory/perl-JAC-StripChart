@@ -25,7 +25,7 @@ use Carp;
 use JAC::StripChart::Error;
 
 use vars qw/ $VERSION /;
-$VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
+$VERSION = sprintf("%d", q$Revision$ =~ /(\d+)/);
 
 # Conversion of hours to radians (pi/12)
 use constant DH2R => 0.26179938779914943653855361527329190701643078328126;

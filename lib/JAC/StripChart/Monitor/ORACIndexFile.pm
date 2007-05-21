@@ -34,7 +34,7 @@ use ORAC::Index::Extern;
 
 
 use vars qw/ $VERSION /;
-$VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
+$VERSION = sprintf("%d", q$Revision$ =~ /(\d+)/);
 
 # Global hash look up table to keep track of which objects
 # have been associated with which index file. This is attempting

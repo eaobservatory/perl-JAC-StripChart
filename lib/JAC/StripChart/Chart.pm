@@ -31,7 +31,7 @@ use JAC::StripChart::Error;
 use JAC::StripChart::Chart::Attrs;
 
 use vars qw/ $VERSION /;
-$VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
+$VERSION = sprintf("%d", q$Revision$ =~ /(\d+)/);
 
 =head1 METHODS
 

@@ -30,7 +30,7 @@ use DateTime::TimeZone;
 use JAC::StripChart::Error;
 
 use vars qw/ $VERSION $USE_SIMPLE /;
-$VERSION = sprintf("%d.%03d", q$Revision$ =~ /(\d+)\.(\d+)/);
+$VERSION = sprintf("%d", q$Revision$ =~ /(\d+)/);
 
 $USE_SIMPLE = 0;
 

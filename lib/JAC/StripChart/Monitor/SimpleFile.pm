@@ -438,6 +438,8 @@ sub readsimple {
   while (my $line = <$handle>) {
     next if $line =~ /^\#/; # Skip lines beginning with a #
     $line =~ s/^\s+//g;     # Delete leading blanks
+    next unless $line =~ /\w/;
+
     my @data = split(/\s+/,$line);
 
     # Convert time data to MJD
@@ -584,6 +586,9 @@ sub _convert_to_mjd {
   my ($datetime, $tformat) = @_;
   my ($day, $month, $year, $hour, $minute, $seconds, 
       $separator, $frac, $mjd);
+
+  # check definedness
+  return 0 unless defined $datetime;
 
   # Return if zero
   if ($datetime eq 0) {

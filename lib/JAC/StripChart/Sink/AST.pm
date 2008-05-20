@@ -168,6 +168,11 @@ sub init {
     $tfr->Set("unit=h");
   }
 
+  # Set the TZ offset for LT timescale
+  my $offset = Time::Piece->new->tzoffset;
+  $offset /= 3600;
+  $tfr->Set("LTOffset=$offset");
+
   $self->astFrame( $fr );
 
   # We can not set plot attributes here since we are in principle creating
@@ -431,8 +436,12 @@ sub putData {
     $plt->Set("Title",$title);
     $plt->Set("TitleGap","0.01");
 
+    # For units=hours this does not work because the delta from TimeOrigin
+    # does not change
+    my $tscale = $self->timescale;
+    $plt->Set("TimeScale=$tscale") if $tscale ne "UTC";
     $plt->Grid();
-
+    $plt->Set("TimeScale=UTC") if $tscale ne "UTC";
     # Retrieve all other data from cache - note use monitors from
     # Cache as these are the data that havbe already been stored, as
     # opposed to all the monitors that will be (and may not yet be)

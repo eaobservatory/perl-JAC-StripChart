@@ -71,6 +71,7 @@ sub new {
 		   PlotTitle => ' ',
 		   Attr => ' ',
 		   Tunits => 'unit',
+       OutputTimeScale => "UTC",
 		   TimeMap => new JAC::StripChart::TimeMap,
 		   Updated => 0,
 		  }, $class;
@@ -79,7 +80,8 @@ sub new {
     my %args = @_;
 
     # loop over known important methods
-    for my $k (qw| device growt window autoscale yscale yunits ylabel plottitle tunits |) {
+    for my $k (qw| device growt window autoscale yscale yunits ylabel
+                   timescale plottitle tunits |) {
       $snk->$k($args{$k}) if exists $args{$k};
     }
   }
@@ -288,6 +290,25 @@ sub tunits {
     $self->{Tunits} = shift;
   }
   return $self->{Tunits};
+}
+
+=item B<timescale>
+
+Set the timescale for the display of the output time axis. Defaults
+to UTC. Not supported by all sinks. Only used for display. Does
+not affect the MJD values themselves which are assumed to be UTC
+on input.
+
+Allowed values are those expected by AST.
+
+=cut
+
+sub timescale {
+  my $self = shift;
+  if (@_) {
+    $self->{OutputTimeScale} = shift;
+  }
+  return $self->{OutputTimeScale};
 }
 
 =item B<yunits>

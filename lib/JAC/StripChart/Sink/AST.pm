@@ -147,9 +147,11 @@ sub init {
   # configurable so I'm writing this as if it is)
 #  my $output = 'hours';  # days or radians or hours or unit
   my $tunits = $self->tunits;
+  my $yunits = ($self->yunits ? $self->yunits : "Jy");
+  my $ylabel = ($self->ylabel ? $self->ylabel : "Flux");
 
   my $fr;
-  my $shared = "title=StripChart,label(1)=Time,label(2)=Flux,unit(2)=Jy";
+  my $shared = "title=StripChart,label(1)=Time,label(2)=$ylabel,unit(2)=$yunits";
 
   # For TimeMap purposes, we let AST do all the work except for tunits=hours
   # which AST can not handle.
@@ -167,7 +169,7 @@ sub init {
   } else {
     # Use a TimeFrame
     my $tfr = Starlink::AST::TimeFrame->new("TimeScale=UTC,System=MJD"); 
-    my $yaxis = Starlink::AST::Frame->new(1, "label=Flux,unit=Jy" );
+    my $yaxis = Starlink::AST::Frame->new(1, "label=$ylabel,unit=$yunits" );
     $fr = Starlink::AST::CmpFrame->new( $tfr, $yaxis, "title=StripChart");
 
     # Options are 

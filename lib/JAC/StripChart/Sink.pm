@@ -66,6 +66,7 @@ sub new {
 		   AutoScale => 1,
 		   Yscale => [0,1],
 		   Yunits => ' ',
+       Ylabel => 'Flux',
 		   Window => 0,
 		   PlotTitle => ' ',
 		   Attr => ' ',
@@ -78,7 +79,7 @@ sub new {
     my %args = @_;
 
     # loop over known important methods
-    for my $k (qw| device growt window autoscale yscale yunits plottitle tunits |) {
+    for my $k (qw| device growt window autoscale yscale yunits ylabel plottitle tunits |) {
       $snk->$k($args{$k}) if exists $args{$k};
     }
   }
@@ -305,6 +306,24 @@ sub yunits {
     $self->{Yunits} = $yunits;
   }
   return $self->{Yunits};
+}
+
+=item B<ylabel>
+
+The label for the Y axis.
+
+  $ylab = $snk->label;
+  $snk->ylabel( $ylab );
+
+=cut
+
+sub ylabel {
+  my $self = shift;
+  if (@_) {
+    my $ylabel = shift;
+    $self->{Ylabel} = $ylabel;
+  }
+  return $self->{Ylabel};
 }
 
 =item B<attr>

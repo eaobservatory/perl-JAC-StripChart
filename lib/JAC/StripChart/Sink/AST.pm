@@ -160,14 +160,12 @@ sub init {
   # "radians" = hh:mm:ss
   # "unit" = MJD
   # "hours" = MJD with TimeOrigin but units of hours
-    if ($tunits =~ /^rad/i) {
-      $tfr->Set("format=iso.0");
-    } elsif ($tunits =~ /^hours/i) {
-      # set the output for timemap to hours
-      $self->timemap->output( $tunits );
-      $tfr->Set("unit=h");
-    }
-
+  if ($tunits =~ /^rad/i) {
+    $tfr->Set("format=iso.0");
+  } elsif ($tunits =~ /^hours/i) {
+    # set the output for timemap to hours
+    $self->timemap->output( $tunits );
+    $tfr->Set("unit=h");
   }
 
   $self->astFrame( $fr );

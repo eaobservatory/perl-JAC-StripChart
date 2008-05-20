@@ -150,35 +150,22 @@ sub init {
   my $yunits = ($self->yunits ? $self->yunits : "Jy");
   my $ylabel = ($self->ylabel ? $self->ylabel : "Flux");
 
-  my $fr;
-  my $shared = "title=StripChart,label(1)=Time,label(2)=$ylabel,unit(2)=$yunits";
+  # Use a TimeFrame
+  my $tfr = Starlink::AST::TimeFrame->new("TimeScale=UTC,System=MJD"); 
+  my $yaxis = Starlink::AST::Frame->new(1, "label=$ylabel,unit=$yunits" );
+  my $fr = Starlink::AST::CmpFrame->new( $tfr, $yaxis, "title=StripChart");
 
-  # For TimeMap purposes, we let AST do all the work except for tunits=hours
-  # which AST can not handle.
-  if ($tunits eq 'hours') {
-    # KLUDGE: assumes that data being plotted are arriving TODAY and
-    # data files contain no older data! Really need to use oldest point
-    # to be plotted for each chart
-    use Time::Piece;
-    my $today = gmtime; 
-    my $refdate = $today->ymd;    
-    $self->timemap->output( $tunits );
-
-    # Create the plotting frame
-    $fr = new Starlink::AST::Frame( 2, "$shared,unit(1)=UT Hours since midnight $refdate" );
-  } else {
-    # Use a TimeFrame
-    my $tfr = Starlink::AST::TimeFrame->new("TimeScale=UTC,System=MJD"); 
-    my $yaxis = Starlink::AST::Frame->new(1, "label=$ylabel,unit=$yunits" );
-    $fr = Starlink::AST::CmpFrame->new( $tfr, $yaxis, "title=StripChart");
-
-    # Options are 
-    # "days" = MJD with TimeOrigin (handled by putData)
-    # "radians" = hh:mm:ss
-    # "unit" = MJD
-    # "hours"  not handled by AST TimeFrame
+  # Options are 
+  # "days" = MJD with TimeOrigin (handled by putData)
+  # "radians" = hh:mm:ss
+  # "unit" = MJD
+  # "hours" = MJD with TimeOrigin but units of hours
     if ($tunits =~ /^rad/i) {
       $tfr->Set("format=iso.0");
+    } elsif ($tunits =~ /^hours/i) {
+      # set the output for timemap to hours
+      $self->timemap->output( $tunits );
+      $tfr->Set("unit=h");
     }
 
   }
@@ -215,7 +202,7 @@ sub putData {
     $self->timemap->refdate( int($data[0]->[0]) );
 
     # update time origin
-    if ($self->timemap->output() eq 'days') {
+    if ($self->timemap->output() =~ /(hours|days)/) {
       $self->astFrame->Set("TimeOrigin=MJD ".$self->timemap->refdate);
     }
 

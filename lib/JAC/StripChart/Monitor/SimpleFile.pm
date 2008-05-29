@@ -121,8 +121,8 @@ sub filename {
     my $datafile = shift;
     $self->{SimpleFile} = $datafile;
     # Check file exists
-    warnings::warnif("File '$datafile' does not yet exist. Waiting for it.\n")
-        unless -e $datafile;
+#    warnings::warnif("File '$datafile' does not yet exist. Waiting for it.\n")
+#        unless -e $datafile;
     # Read file to get number of columns
     $self->find_ncolumns;
   }

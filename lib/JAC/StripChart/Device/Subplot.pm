@@ -21,7 +21,6 @@ use warnings;
 use warnings::register;
 use Carp;
 
-use Tk;
 use JAC::StripChart::Error;
 
 use vars qw/ $VERSION /;

@@ -50,6 +50,7 @@ Create a new PLplot device. This will create a PLplot window.
 Supported options are:
 
   nxy =>   Ref to array indicating the number of x and y subplots
+  dev =>   PLplot device name (eg xwin)
 
 =cut
 
@@ -59,7 +60,8 @@ sub new {
   my $dev = $class->SUPER::new( @_ );
 
   # Select the device
-  plsdev( "xwin" );
+  my $devdriver = $dev->device_driver;
+  plsdev( $devdriver ? $devdriver : "xwin" );
 
   # subdivide the page
   plssub( $dev->nxy );

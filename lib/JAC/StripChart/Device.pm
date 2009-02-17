@@ -50,6 +50,7 @@ Supported options are:
   context => Context in which the plot should be created.
   dims => Ref to array indicating the output chart dimensions in pixels
   tabs => Should tabs be used for subplots? Only available for Tk.
+  dev => Override the default device (not portable)
 
 The context will be specific to a particular device so a device should
 check that a context is relevant rather than assuming it is
@@ -57,6 +58,10 @@ suitable. If a context is not suitable it should be ignored if
 possible, else an exception should be thrown.
 
 nxy will default to [1,1]
+
+The "dev" option should only be used if you know that a particular class
+is going to be used and that it understands the "dev" option. Do not use
+this option if your application is going to launch multiple devices.
 
 =cut
 
@@ -66,6 +71,7 @@ sub new {
   my %args = @_;
 
   my $dev = bless {
+       DevDriver => undef,
 		   DEVID => undef,
 		   CONTEXT => undef,
 		   NXY => [1,1],
@@ -78,6 +84,7 @@ sub new {
   @{$dev->{DIMS}} = @{ $args{dims} } if exists $args{dims};
   $dev->context( $args{context} ) if exists $args{context};
   $dev->tabs( $args{tabs} ) if exists $args{tabs};
+  $dev->{DevDriver} = $args{dev} if exists $args{dev};
 
   return $dev;
 }
@@ -99,6 +106,18 @@ sub devid {
   my $self = shift;
   if (@_) { $self->{DEVID} = shift; }
   return $self->{DEVID};
+}
+
+=item B<device_driver>
+
+Name of the device driver to open. Overrides the default. Not used in all devices.
+
+=cut
+
+sub device_driver {
+  my $self = shift;
+  return $self->{DevDriver};
+
 }
 
 =item B<nxy>

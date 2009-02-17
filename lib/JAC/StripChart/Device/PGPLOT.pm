@@ -50,6 +50,7 @@ Create a new PGPLOT device. This will create a PGPLOT window.
 Supported options are:
 
   nxy =>   Ref to array indicating the number of x and y subplots
+  dev =>   PGPLOT device name (eg /xserve)
 
 =cut
 
@@ -62,7 +63,8 @@ sub new {
   my @dims = $dev->dims();
   $ENV{PGPLOT_XW_WIDTH} = $dims[0] if $dims[0] > 0;
 
-  my $devid = pgopen( '/xw' );
+  my $devdriver = $dev->device_driver;
+  my $devid = pgopen( $devdriver ? $devdriver : '/xw' );
   throw JAC::StripChart::Error::BadPlotDevice("Error opening PGPLOT window")
     if $devid <= 0;
 

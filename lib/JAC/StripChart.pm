@@ -32,7 +32,7 @@ use JAC::StripChart::Config;
 
 
 use vars qw/ $VERSION /;
-$VERSION = sprintf("%d", q$Revision$ =~ /(\d+)/);
+$VERSION = 1.0;
 
 # stripchart poll rate in milliseconds
 use constant POLL_INTERVAL => 750;

@@ -43,7 +43,7 @@ use Date::Format;
 use List::Util qw/ min /;
 
 use vars qw/ $VERSION /;
-$VERSION = sprintf("%d", q$Revision$ =~ /(\d+)/);
+$VERSION = 1.0;
 
 # Global hash look up table to keep track of which objects
 # have been associated with which files. This is attempting

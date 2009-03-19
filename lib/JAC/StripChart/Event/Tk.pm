@@ -32,7 +32,7 @@ use Tk ();
 use JAC::StripChart;
 
 use vars qw/ $VERSION /;
-$VERSION = sprintf("%d", q$Revision$ =~ /(\d+)/);
+$VERSION = 1.0;
 
 =head1 METHODS
 

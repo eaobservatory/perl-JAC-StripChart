@@ -26,7 +26,7 @@ use JAC::StripChart::Error;
 use File::Spec;
 
 # Need MJD conversion
-use Astro::SLA;
+use Astro::PAL;
 
 # Need to be able to read index files
 use lib File::Spec->catdir($ENV{ORAC_DIR},"lib","perl5");
@@ -269,7 +269,7 @@ sub _oractime_to_mjd {
   my $class = shift;
   my $oractime = shift;
 
-  Astro::SLA::slaCldj( substr($oractime,0,4),
+  Astro::PAL::palCldj( substr($oractime,0,4),
 		       substr($oractime,4,2),
 		       substr($oractime,6,2),
 		       my $mjd, my $j

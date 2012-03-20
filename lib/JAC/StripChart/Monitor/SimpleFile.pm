@@ -36,7 +36,7 @@ use File::stat;
 use Fcntl qw/ SEEK_SET /;
 
 # Need MJD conversion
-use Astro::SLA;
+use Astro::PAL;
 use Time::Piece;
 use Date::Format;
 
@@ -644,11 +644,11 @@ sub _convert_to_mjd {
       }
     }
     # Convert date to MJD number
-    Astro::SLA::slaCldj( $year, $month, $day, $mjd, my $j );
+    ($mjd, my $j) = Astro::SLA::palCldj( $year, $month, $day );
     warnings::warnif("Bad status in convert_to_mjd from slaCldj: $j")
       unless $j == 0;
     # Calculate day fraction unless already calculated above
-    Astro::SLA::slaDtf2d( $hour, $minute, $seconds, $frac, $j)
+    ($frac, $j) = Astro::SLA::palDtf2d( $hour, $minute, $seconds )
       unless defined $frac;
     warnings::warnif("Bad status in convert_to_mjd from slaDtf2d: $j")
       unless $j == 0;

@@ -269,11 +269,9 @@ sub _oractime_to_mjd {
   my $class = shift;
   my $oractime = shift;
 
-  Astro::PAL::palCldj( substr($oractime,0,4),
-		       substr($oractime,4,2),
-		       substr($oractime,6,2),
-		       my $mjd, my $j
-		     );
+  my ($mjd, $j) = Astro::PAL::palCldj( substr($oractime,0,4),
+                                       substr($oractime,4,2),
+                                       substr($oractime,6,2) );
 
   warnings::warnif("Bad status in oractime_to_mjd from slaCldj: $j")
     unless $j == 0;

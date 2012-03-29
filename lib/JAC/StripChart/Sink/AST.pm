@@ -93,7 +93,7 @@ one does not exist for the given monitor ID.
 
 sub astCache {
   my $self = shift;
-  if (@_) { 
+  if (@_) {
     my $monid = shift;
     if (@_) {
       # Store
@@ -151,11 +151,11 @@ sub init {
   my $ylabel = ($self->ylabel ? $self->ylabel : "Flux");
 
   # Use a TimeFrame
-  my $tfr = Starlink::AST::TimeFrame->new("TimeScale=UTC,System=MJD"); 
+  my $tfr = Starlink::AST::TimeFrame->new("TimeScale=UTC,System=MJD");
   my $yaxis = Starlink::AST::Frame->new(1, "label=$ylabel,unit=$yunits" );
   my $fr = Starlink::AST::CmpFrame->new( $tfr, $yaxis, "title=StripChart");
 
-  # Options are 
+  # Options are
   # "days" = MJD with TimeOrigin (handled by putData)
   # "radians" = hh:mm:ss
   # "unit" = MJD
@@ -208,7 +208,6 @@ sub putData {
     if ($self->timemap->output() =~ /(hours|days)/) {
       $self->astFrame->Set("TimeOrigin=MJD ".$self->timemap->refdate);
     }
-
   }
 
   # Store new data in it
@@ -229,7 +228,7 @@ sub putData {
   # Limits for data within plot window
   my ($wxmax, $wxmin, $wymax, $wymin);
   # Define limits of plotting window
-  my ($winlo, $winhi); 
+  my ($winlo, $winhi);
 
   # Retrieve window size from ini file
   my $window = $self->window;
@@ -389,10 +388,10 @@ sub putData {
 
     # create plot
     my $border = 0.14;
-    $plt = new Starlink::AST::Plot( $self->astFrame(), 
+    $plt = new Starlink::AST::Plot( $self->astFrame(),
 				    [$border,$border,1-$border,1-$border],
 				    [$mapped_plxmin,$plymin,
-				     $mapped_plxmax,$plymax], 
+				     $mapped_plxmax,$plymax],
 				    "size(title)=1.5,size(textlab)=1.3,size(numlab)=1.3,".
 				    "colour(title)=3,colour(textlab)=3,labelling=exterior,".
 				    "colour(border)=2,colour(numlab)=2,colour(ticks)=2");
@@ -405,7 +404,7 @@ sub putData {
   # Only want to plot new data, unless the plot is to be redrawn
   my ($plxref, $plyref);
   # Find most recent time
-  my $lastdata = $data[0]->[0]; 
+  my $lastdata = $data[0]->[0];
   my $lasttime = $ts->prevdata($lastdata); # Return ref to earliest point
 
   # If a plot exists, and we have plotted data previously then
@@ -417,7 +416,7 @@ sub putData {
     # Retrieve data
     ($plxref,$plyref) = $ts->data(xyarr => 1);
     # Re-calculate number of points to plot
-    $npts = $ts->npts; 
+    $npts = $ts->npts;
   } else {
     # If no plot, then use the whole range of values
     $plxref = $xref;
@@ -427,7 +426,7 @@ sub putData {
 
   # Draw the plot axes if we have changed the plot bounds
   # Reset window to full range
-  $ts->window($winlo, $winhi); 
+  $ts->window($winlo, $winhi);
   unless ($isold) {
 
     # Set plotting attributes:
@@ -476,7 +475,7 @@ sub putData {
 	}
       } # end unless $monid
     } # end foreach $mon
-  } # end unless $isold 
+  } # end unless $isold
 
 
   # Position offsets for plot legends
@@ -516,7 +515,7 @@ sub putData {
     # Determine whether to plot symbols or lines
     $plline = ( ($plotattr->linestyle eq '0' || lc($plotattr->linestyle) =~ "no") ? 0 : 1 );
     $plsym = ( ($plotattr->symbol eq '0' || lc($plotattr->symbol) =~ "no") ? 0 : 1 );
-    throw  JAC::StripChart::Error::BadConfig("Must specify either a symbol or a linestyle for monitor $mon on chart $chartid") 
+    throw  JAC::StripChart::Error::BadConfig("Must specify either a symbol or a linestyle for monitor $mon on chart $chartid")
       unless ($plline || $plsym);
 
     # Plot legend
@@ -536,7 +535,7 @@ sub putData {
   $plline = ( ($attr->linestyle eq '0' || lc($attr->linestyle) =~ "no") ? 0 : 1 );
   $plsym = ( ($attr->symbol eq '0' || lc($attr->symbol) =~ "no") ? 0 : 1 );
 
-  throw  JAC::StripChart::Error::BadConfig("Must specify either a symbol or a linestyle for monitor $monid on chart $chartid") 
+  throw  JAC::StripChart::Error::BadConfig("Must specify either a symbol or a linestyle for monitor $monid on chart $chartid")
     unless ($plline || $plsym);
 
   if ($npts > 0) {
@@ -620,7 +619,7 @@ sub _colour_to_index {
       if ($knowncolours[$j] eq $lcolour) {
 	$cindex = $j + 1;
 	last;
-      } 
+      }
     }
   } else {
     throw JAC::StripChart::Error::BadConfig("Invalid string for colour");
@@ -650,7 +649,7 @@ sub _style_to_index {
   my $stindex = 1;
 
   if ($style =~ /\d/) {
-    throw JAC::StripChart::Error::BadConfig("Line style index does not exist - must lie between 1 and 5") 
+    throw JAC::StripChart::Error::BadConfig("Line style index does not exist - must lie between 1 and 5")
       if ($style > 5 || $style < 0);
     $stindex = $style;
   } elsif ($style =~ /[a-z]/) {
@@ -711,7 +710,7 @@ sub _sym_to_index {
 		       fdiamond => -4);
 
   if ($sym =~ /\d/) {
-    throw JAC::StripChart::Error::BadConfig("Symbol index not defined - must lie between -4 and 31") 
+    throw JAC::StripChart::Error::BadConfig("Symbol index not defined - must lie between -4 and 31")
       if ($sym > 31 || $sym < -4);
     $symindex = $sym;
   } elsif ($sym =~ /[a-z]/) {

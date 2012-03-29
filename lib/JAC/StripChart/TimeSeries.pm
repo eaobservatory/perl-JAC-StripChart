@@ -192,7 +192,7 @@ sub add_data {
     my %data = map { (0+ $_->[0]) => $_ } @{ $self->{DATA} }, @newdata;
 
     # Sort the keys into time order
-    my @sortkeys = sort { $data{$a}->[0] <=> $data{$b}->[0] 
+    my @sortkeys = sort { $data{$a}->[0] <=> $data{$b}->[0]
 			} keys %data;
 
     # and recreate the sorted list whilst removing undefs
@@ -274,7 +274,7 @@ sub data {
 
   # deal with "outside"
   if ($opts{outside}) {
-    $first-- if ($first > 0 && (defined $min && 
+    $first-- if ($first > 0 && (defined $min &&
 				$alldata->[$first]->[0] != $min));
     $last++  if ($last < $#$alldata && (defined $max &&
 					$alldata->[$last]->[0] != $max));
@@ -390,7 +390,7 @@ sub bounds_cache {
 
 =item B<wbounds_cache>
 
-The bounds for the current window. Same behaviour as the 
+The bounds for the current window. Same behaviour as the
 C<bounds_cache> method except that the cache is cleared
 when window() is updated.
 

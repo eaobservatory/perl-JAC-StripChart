@@ -261,9 +261,11 @@ sub data {
 	      xyarr => 0,
 	      outside => 0,
 	      @_);
-
-  # Get all of the data
+  # Get all of the data - note alldata will return an empty array
+  # reference if there no data exist, so only proceed if the array
+  # contains data
   my $alldata = $self->alldata;
+  return unless @$alldata;
 
   # Requested interval
   my ($min,$max) = $self->window;

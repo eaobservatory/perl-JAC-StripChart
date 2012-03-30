@@ -96,7 +96,6 @@ my $st = new JAC::StripChart( $cfgfile, %init );
 
 # Create the main window
 my $MW = new MainWindow();
-$MW->geometry( '800x640' );
 
 # Create top panel of control buttons
 my $MenuFrame = $MW->Frame->pack( -expand => 0,

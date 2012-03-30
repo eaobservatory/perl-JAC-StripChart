@@ -66,12 +66,12 @@ sub new {
 		   AutoScale => 1,
 		   Yscale => [0,1],
 		   Yunits => ' ',
-       Ylabel => 'Flux',
+		   Ylabel => 'Flux',
 		   Window => 0,
 		   PlotTitle => ' ',
 		   Attr => ' ',
 		   Tunits => 'unit',
-       OutputTimeScale => "UTC",
+		   OutputTimeScale => "UTC",
 		   TimeMap => new JAC::StripChart::TimeMap,
 		   Updated => 0,
 		  }, $class;
@@ -227,7 +227,7 @@ Sets the updated() flag on update.
 
 sub autoscale {
   my $self = shift;
-  if (@_) { 
+  if (@_) {
     $self->_set_and_check_update_flag( "Autoscale", shift );
   }
   return $self->{Autoscale};
@@ -399,7 +399,7 @@ Return an array containing the monitor IDs for the current plot
 sub monitor_ids {
   my $self = shift;
   my %attr = $self->attr;
-  return (keys %attr);
+  return (sort keys %attr);
 }
 
 =back
@@ -534,7 +534,7 @@ sub _update_line_colours {
   if (@_) {
     %attrs = @_;
   } else {
-   warnings::warnif("No attributes supplied - will not check and update colours "); 
+   warnings::warnif("No attributes supplied - will not check and update colours ");
    return;
   }
 
@@ -542,7 +542,7 @@ sub _update_line_colours {
 
   # Loop over the monitors to check for identical line colours
   my %colourcount;
-  my %moncols; 
+  my %moncols;
   foreach my $monid (keys %attrs) {
     $moncols{$monid} = $self->_colour_to_index($attrs{$monid}->linecol);
   }

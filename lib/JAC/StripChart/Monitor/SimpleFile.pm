@@ -644,11 +644,11 @@ sub _convert_to_mjd {
       }
     }
     # Convert date to MJD number
-    ($mjd, my $j) = Astro::SLA::palCldj( $year, $month, $day );
+    ($mjd, my $j) = Astro::PAL::palCldj( $year, $month, $day );
     warnings::warnif("Bad status in convert_to_mjd from slaCldj: $j")
       unless $j == 0;
     # Calculate day fraction unless already calculated above
-    ($frac, $j) = Astro::SLA::palDtf2d( $hour, $minute, $seconds )
+    ($frac, $j) = Astro::PAL::palDtf2d( $hour, $minute, $seconds )
       unless defined $frac;
     warnings::warnif("Bad status in convert_to_mjd from slaDtf2d: $j")
       unless $j == 0;

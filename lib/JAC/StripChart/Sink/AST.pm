@@ -387,12 +387,12 @@ sub putData {
     my ($mapped_plxmax) = $self->timemap->do_map( $plxmax );
 
     # create plot
-    my $border = 0.14;
+    my $border = 0.08;
     $plt = new Starlink::AST::Plot( $self->astFrame(),
 				    [$border,$border,1-$border,1-$border],
 				    [$mapped_plxmin,$plymin,
 				     $mapped_plxmax,$plymax],
-				    "size(title)=1.5,size(textlab)=1.3,size(numlab)=1.3,".
+				    "size(title)=2,size(textlab)=1.7,size(numlab)=2,".
 				    "colour(title)=3,colour(textlab)=3,labelling=exterior,".
 				    "colour(border)=2,colour(numlab)=2,colour(ticks)=2");
     $self->astPlot( $plt );
@@ -479,7 +479,7 @@ sub putData {
 
 
   # Position offsets for plot legends
-  my ($delta,$j) = (0.05,0);
+  my ($delta,$j) = (0.075,0);
 #  my $x0 = 0.8; # Original value
 #  my $y0 = 0.95; # Original value
   my $x0 = 0.8; # Hack to deal with Tk vs PGPLOT concepts of 0->1
@@ -502,7 +502,7 @@ sub putData {
     $ypos = $y0 - $delta*$j;
     $j++;
 
-    $plt->Set("Size(Strings)=1.5");
+    $plt->Set("Size(Strings)=2");
     $plt->Set("Colour(Strings)",$linecol);
     $plt->Text($mon,[$xpos,$ypos],[0.0,1.0],"CC");
     # Determine position of plot legend

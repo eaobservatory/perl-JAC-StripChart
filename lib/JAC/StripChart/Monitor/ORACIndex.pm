@@ -22,6 +22,7 @@ use warnings;
 use warnings::register;
 use Carp;
 
+use JAC::Setup ( 'oracdr' );
 use JAC::StripChart::Error;
 use JAC::StripChart::Monitor::ORACIndexFile;
 

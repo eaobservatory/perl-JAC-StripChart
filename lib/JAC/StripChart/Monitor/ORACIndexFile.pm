@@ -29,7 +29,8 @@ use File::Spec;
 use Astro::PAL;
 
 # Need to be able to read index files
-use lib File::Spec->catdir($ENV{ORAC_DIR},"lib","perl5");
+#use lib File::Spec->catdir($ENV{ORAC_DIR},"lib","perl5");
+use JAC::Setup ( 'oracdr' );
 use ORAC::Index::Extern;
 
 

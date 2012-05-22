@@ -196,8 +196,9 @@ sub getData {
   # Get the reference time for this chart
   my $reftime = $self->_monitor_posn( $key );
 
-  # Obtain the lines that match the filter
-  my @match = $self->index->scanindex(%filter);
+  # Obtain the lines that match the filter.  Also apply filter on
+  # ORACTIME.
+  my @match = $self->index->scanindex(%filter, ':SINCE' => $reftime);
 
   # Make sure that column exists.
   if (@match && !exists $match[0]->{$column}) {
@@ -205,10 +206,9 @@ sub getData {
     return ();
   }
 
-  # Now we have to filter on the basis of time. In this
+  # Now we have to sort on the basis of time. In this
   # case ORACTIME (ie YYYYMMDD.frac) format.
-  @match = sort { $a->{ORACTIME} <=> $b->{ORACTIME} } 
-              grep { $_->{ORACTIME} > $reftime } @match;
+  @match = sort {$a->{ORACTIME} <=> $b->{ORACTIME}} @match;
 
   # set reference time
   $self->_monitor_posn( $key, $match[-1]->{ORACTIME})

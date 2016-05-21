@@ -44,6 +44,7 @@ use Getopt::Long;
 use Pod::Usage;
 use Time::HiRes qw/ sleep gettimeofday tv_interval/;
 
+use JAC::StripChart;
 use JAC::StripChart::Monitor::Random;
 
 $| = 1; # unbuffered
@@ -60,9 +61,8 @@ pod2usage(1) if $help;
 pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 
 if ($version) {
-  my $id = '$Id$ ';
   print "Simple data source for stripchart\n";
-  print " CVS revision: $id\n";
+  print 'Version: ' . $JAC::StripChart::VERSION . "\n";
   exit;
 }
 

@@ -180,7 +180,7 @@ sub tformat {
     my $tformat = substr($_[0],0,3);
 # Check that Tformat is one of the allowed possibilities.
 # Return without setting tformat if no match.
-    if ($tformat !~ /mjd|ora|dmy|mdy|ymd|hms/i) {
+    if ($tformat !~ /mjd|ora|dmy|mdy|ymd|hms|iso/i) {
       warnings::warnif("Unknown time format for ".$self->monid." - unable to plot data");
 	return;
       }

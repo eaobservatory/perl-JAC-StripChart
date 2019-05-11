@@ -34,6 +34,8 @@ use JAC::StripChart::Error;
 use File::Spec;
 use File::stat;
 use Fcntl qw/ SEEK_SET /;
+use DateTime;
+use DateTime::Format::ISO8601;
 
 # Need MJD conversion
 use Astro::PAL;
@@ -592,6 +594,12 @@ sub _convert_to_mjd {
   if ($datetime eq 0) {
     $mjd = 0;
     return $mjd;
+  }
+
+  if ($tformat =~ /^iso/i) {
+    my $dt = eval {DateTime::Format::ISO8601->parse_datetime($datetime);};
+    return unless defined $dt;
+    return $dt->mjd();
   }
 
   # Find separator

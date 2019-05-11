@@ -42,7 +42,7 @@ use Astro::PAL;
 use Time::Piece;
 use Date::Format;
 
-use List::Util qw/ min /;
+use List::Util qw/ min minstr /;
 
 use vars qw/ $VERSION /;
 $VERSION = 1.0;
@@ -284,6 +284,20 @@ sub tformat {
   return $self->{Tformat};
 }
 
+=item B<tformat_is_str>
+
+Determine whether time values should be compared as strings.
+
+  if ($sf->tformat_is_str()) {
+    ...
+
+=cut
+
+sub tformat_is_str {
+  my $self = shift;
+  return ($self->tformat =~ /^iso/i) ? 1 : 0;
+}
+
 =item B<id>
 
 Get/set the chart ID passed to getData()
@@ -425,7 +439,9 @@ sub readsimple {
   my (@plotdata, $oldest);
 
   # Set $oldest to oldest monitor position or 0 if first time through
-  if ($self->_monitor_posn( $key ) == 0){
+  if ($self->tformat_is_str()
+        ? ($self->_monitor_posn( $key ) eq '0')
+        : ($self->_monitor_posn( $key ) == 0)) {
     $oldest = 0;
   } else {
     $oldest = $self->oldest_monpos;
@@ -474,9 +490,13 @@ sub oldest_monpos {
 
   my $self = shift;
   my %monpos = $self->_monitor_posn();
-  my $oldest = min(values %monpos);
 
-  return $oldest;
+  if ($self->tformat_is_str()) {
+    return minstr(values %monpos);
+  }
+  else {
+    return min(values %monpos);
+  }
 }
 
 =item B<_genkey>

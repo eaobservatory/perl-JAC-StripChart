@@ -376,11 +376,11 @@ sub getData {
 # Index last_read by $key
 #  return if ($self->last_read > $self->last_write($self->filename));
 
-  # Read new data and store in @newdata
-  my @newdata = $self->readsimple( $key );
+  # Read new data and store in $newdata
+  my $newdata = $self->readsimple( $key );
 
   # return the answer (time is in MJD)
-  return map { [ $_->[0], $_->[1] ] } @newdata;
+  return @$newdata;
 }
 
 =head2 B<Internal methods>
@@ -390,7 +390,7 @@ sub getData {
 A method for returning the two columns of data of interest.
 
 #  @data = $self->readsimple( $tcol, $ycol, $id, $tformat, $key);
-  @data = $self->readsimple( $key);
+  $data = $self->readsimple( $key);
 
 where $tcol is the index of the column representing time, $ycol
 is the index of the column, etc
@@ -407,7 +407,7 @@ sub readsimple {
 
   # Get the filename and see if it is present
   my $file = $self->filename;
-  return () unless (-e $file);
+  return [] unless (-e $file);
 
   # Get relevant attributes
   my $tcol = $self->tcol;
@@ -426,7 +426,7 @@ sub readsimple {
   my $fhpos = $self->_filepos_last_read($key);
   if ($filesize == $fhpos) {
     # no change to file size so don't even read it
-    return ();
+    return [];
   } elsif ($filesize < $fhpos) {
     # file has shrunk - probably a new file so reread from the top
     $fhpos = 0;
@@ -477,7 +477,7 @@ sub readsimple {
   my $readtime = gmtime;
   $self->last_read( $readtime->mjd );
 
-  return @plotdata;
+  return \@plotdata;
 }
 
 =item B<oldest_monpos>

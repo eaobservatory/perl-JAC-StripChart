@@ -42,7 +42,7 @@ use Astro::PAL;
 use Time::Piece;
 use Date::Format;
 
-use List::Util qw/ min minstr /;
+use List::Util qw/ min /;
 
 use vars qw/ $VERSION /;
 $VERSION = 1.0;
@@ -284,20 +284,6 @@ sub tformat {
   return $self->{Tformat};
 }
 
-=item B<tformat_is_str>
-
-Determine whether time values should be compared as strings.
-
-  if ($sf->tformat_is_str()) {
-    ...
-
-=cut
-
-sub tformat_is_str {
-  my $self = shift;
-  return ($self->tformat =~ /^iso/i) ? 1 : 0;
-}
-
 =item B<id>
 
 Get/set the chart ID passed to getData()
@@ -368,7 +354,7 @@ sub getData {
   my $key = $self->_genkey( $id, $tcol, $ycol);
 
   # Read (get) the stored reference time for this chart = 0 first time round.
-  my $reftime = $self->_convert_to_mjd( $self->_monitor_posn( $key ), $self->tformat );
+  my $reftime = $self->_monitor_posn( $key );
 #  print $reftime ." ". $self->last_write($self->filename) ."\n";
 
 #  return if ($self->last_read > $self->last_write($self->filename) && $reftime > $self->last_write($self->filename));
@@ -439,9 +425,7 @@ sub readsimple {
   my (@plotdata, $oldest);
 
   # Set $oldest to oldest monitor position or 0 if first time through
-  if ($self->tformat_is_str()
-        ? ($self->_monitor_posn( $key ) eq '0')
-        : ($self->_monitor_posn( $key ) == 0)) {
+  if ($self->_monitor_posn($key) == 0) {
     $oldest = 0;
   } else {
     $oldest = $self->oldest_monpos;
@@ -462,11 +446,11 @@ sub readsimple {
     my $tdata = $self->_convert_to_mjd($data[$tcol-1], $tformat);
     # Note the use of < rather than <= guarantees return of at least 1 data pair for refreshing the display
     # No longer needed...
-    next if $tdata <= $self->_convert_to_mjd($oldest, $tformat);
+    next if $tdata <= $oldest;
 #    print $tdata."   ".$oldest."\n";
     push (@plotdata, [ $tdata, $data[$ycol-1] ]);
 # Set monitor position to last line in file
-    $self->_monitor_posn( $key, $data[$tcol-1]);
+    $self->_monitor_posn( $key, $tdata);
   }
 
   # Retrieve the file handle position (this may point to a partial line)
@@ -491,12 +475,7 @@ sub oldest_monpos {
   my $self = shift;
   my %monpos = $self->_monitor_posn();
 
-  if ($self->tformat_is_str()) {
-    return minstr(values %monpos);
-  }
-  else {
-    return min(values %monpos);
-  }
+  return min(values %monpos);
 }
 
 =item B<_genkey>

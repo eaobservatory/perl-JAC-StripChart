@@ -403,8 +403,9 @@ sub readsimple {
 
   # Since we know the size of the file last time and can work out the size of the file
   # now, we know whether to even bother reading anything
-  my $filesize = stat( $file )
+  my $filestat = stat( $file )
     or throw JAC::StripChart::Error::FileNotFound("Error doing stat on file $file: $!");
+  my $filesize = $filestat->size;
 
   # determine last read position for this column and modify it if need be
   # - we may need to modify things so we cache internally all overlapping data to handle

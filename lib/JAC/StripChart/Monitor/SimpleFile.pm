@@ -437,9 +437,14 @@ sub readsimple {
 
   # Read successive lines from file
   while (my $line = <$handle>) {
+    last unless $line =~ /\n/; # Stop if we encountered a partial line
+                               # (presumably at the end of the file).
     next if $line =~ /^\#/; # Skip lines beginning with a #
     $line =~ s/^\s+//g;     # Delete leading blanks
     next unless $line =~ /\w/;
+
+    # If we got a valid line, record this position.
+    $fhpos = tell($handle);
 
     my @data = split(/\s+/,$line);
 
@@ -454,8 +459,8 @@ sub readsimple {
     $self->_monitor_posn( $key, $tdata);
   }
 
-  # Retrieve the file handle position (this may point to a partial line)
-  $self->_filepos_last_read( $key, tell( $handle ) );
+  # Store the file handle position (this should not point to a partial line)
+  $self->_filepos_last_read( $key, $fhpos );
 
   close($handle);
   # update the last_read time
@@ -535,7 +540,6 @@ sub _filepos_last_read {
     if (@_) {
       $self->{FHTELL}->{$key} = shift;
     } else {
-      return 0;
       my $curval = $self->{FHTELL}->{$key};
       return (defined $curval ? $curval : 0);
     }
